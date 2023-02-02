@@ -49,6 +49,21 @@ set(PRJ_HEADERS mysource.cpp somefile.cpp)
 set(PRJ_SOURCES myheader.h)
 ```
 
+## Building
+
+To build, run cmake (`bin` will be the output directory, `.` the source directory):
+
+```sh
+cmake -S . -B bin
+```
+
+This will configure it with all default settings.
+Then build with:
+
+```sh
+cmake --build bin --parallel
+```
+
 ## Adding dependencies
 
 First, find your dependency on vcpkg (for example using [this website](https://vcpkg.io/en/packages.html)). For example, you may be looking for lionkor's `commandline` library, and you will find `lionkor-commandline`.
