@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
 
-if(NOT CMAKE_TOOLCHAIN_FILE)
-    set(CMAKE_TOOLCHAIN_FILE ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake)
-endif()
+include(cmake/Vcpkg.cmake) # needs to happen before project()
 
 project(
     "MY_PROJECT" # replace this
