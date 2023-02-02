@@ -73,7 +73,7 @@ After:
   "dependencies": [
       "fmt",
       "doctest",
-      "lionkor-commandline
+      "lionkor-commandline"
   ]
 }
 ```
