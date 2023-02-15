@@ -37,6 +37,8 @@ During analysis of various performance tests, the two main bottlenecks are:
 - Request speed (you can only run `curl -X POST...` so many times at the same time)
 - cpp-httplib's `ThreadPool::enqueue` - since each request starts a new connection (which shouldn't be the case in a real use-case), a new thread task is enqueued. This takes forever.
 
+A lot of performance is left on the table, as currently, a mutex is used to make sure each access to the file happens atomically. This is not strictly needed, depending on the implementation, but for now it's needed.
+
 ## Building
 
 To build, run cmake (`bin` will be the output directory, `.` the source directory):
