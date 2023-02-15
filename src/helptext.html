@@ -31,8 +31,8 @@ R"(
     <h3>Endpoints</h3>
     <b>NOTE:</b> KEY must match the regex <code>[a-zA-Z\d\-_]+</code> .
     <ul>
-        <li><b><code>GET /kv/KEY</code></b> : Put a new value for the key supplied after <code>/kv/</code>. New value of the key goes in the body.</li>
-        <li><b><code>POST /kv/KEY</code></b> : Get the value for the key supplied after <code>/kv/</code>.</li>
+        <li><b><code>GET /kv/KEY</code></b> : Get the value for the key supplied after <code>/kv/</code>.</li>
+        <li><b><code>POST /kv/KEY</code></b> : Put a new value for the key supplied after <code>/kv/</code>. New value of the key goes in the body.</li>
         <li><b><code>GET /help</code></b> : This help.</li>
         <li><b><code>GET /merge</code></b> : Causes an immediate merge of the key-value store. Should be ran after adding a lot of keys, or after updating keys.</li>
     </ul>

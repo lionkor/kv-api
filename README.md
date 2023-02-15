@@ -18,8 +18,8 @@ cause a merge of all keys (this will cause outdated values to finally be discard
 
 NOTE: KEY must match the regex `[a-zA-Z\d\-_]+`.
 
-- `GET /kv/KEY`: Put a new value for the key supplied after `/kv/`. New value of the key goes in the body.
-- `POST /kv/KEY`: Get the value for the key supplied after `/kv/`.
+- `GET /kv/KEY`: Get the value for the key supplied after `/kv/`.
+- `POST /kv/KEY`: Put a new value for the key supplied after `/kv/`. New value of the key goes in the body.
 - `GET /help`: A html help page with this information and more.
 - `GET /merge`: Causes an immediate merge of the key-value store. Should be ran after adding a lot of keys, or after updating keys.
 
