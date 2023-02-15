@@ -3,8 +3,8 @@ cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
 include(cmake/Vcpkg.cmake) # needs to happen before project()
 
 project(
-    "kv-api" # replace this
-    VERSION 0.1.0
+    "kv-api"
+    VERSION 1.0.0
     LANGUAGES CXX
 )
 

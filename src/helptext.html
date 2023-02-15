@@ -1,0 +1,47 @@
+R"(
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>KV API help</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin-left: 5%;
+            margin-right: 5%;
+        }
+    </style>
+</head>
+<body>
+    <h1>KV API</h1>
+    <p>
+        KV API is a persistent, disk-backed key-value store. Do NOT expose this to the internet without
+        sufficient authentication. This API is meant as an internal API and does not protect against attacks
+        of any kind.
+    </p>
+    <p>
+        KV uses an append-only persistent store, so a <em>merge</em> has to be performed whenever many values are updated or added, or periodically.
+    </p>
+    <h2>How to use</h2>
+    <p>
+        To STORE a value in this key-value store, POST to the endpoint <code>/kv/my-key</code> with the body of the request as the value.
+        For example, <code>curl -X POST http://HOST:PORT/kv/my-key-2 --data "Hello world!"</code> will cause the key-value pair <code>my-key-2=Hello world!</code> to be stored.
+        To LOAD / GET a value, use a GET request to the same endpoint. For example, to get the value of key <code>my-key-2</code>, GET the <code>/kv/my-key-2</code> endpoint.
+    </p>
+    <h3>Endpoints</h3>
+    <b>NOTE:</b> KEY must match the regex <code>[a-zA-Z\d\-_]+</code> .
+    <ul>
+        <li><b><code>GET /kv/KEY</code></b> : Put a new value for the key supplied after <code>/kv/</code>. New value of the key goes in the body.</li>
+        <li><b><code>POST /kv/KEY</code></b> : Get the value for the key supplied after <code>/kv/</code>.</li>
+        <li><b><code>GET /help</code></b> : This help.</li>
+        <li><b><code>GET /merge</code></b> : Causes an immediate merge of the key-value store. Should be ran after adding a lot of keys, or after updating keys.</li>
+    </ul>
+    <h2>Errors</h2>
+    <ul>
+        <li><b>200</b>: The request was completed successfully. For a POST, this means the data has been stored, and for a GET it means the response body contains the value.</li>
+        <li><b>404</b>: On a GET request means that the key was not found.</li>
+        <li><b>500</b>: On any request means an error occurred. Worst case, this could lead to data curruption. Check the application's logs.</li>
+    </ul>
+</body>
+</html>
+)"
