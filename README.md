@@ -23,6 +23,28 @@ NOTE: KEY must match the regex `[a-zA-Z\d\-_]+`.
 - `GET /help`: A html help page with this information and more.
 - `GET /merge`: Causes an immediate merge of the key-value store. Should be ran after adding a lot of keys, or after updating keys.
 
+### Example Use
+
+```sh
+# storing some values
+$ curl localhost:8080/kv/name --data "Lion"
+OK
+$ curl localhost:8080/kv/age --data 24
+OK
+$ curl localhost:8080/kv/language --data "C++"
+OK
+
+# loading some values
+$ curl localhost:8080/kv/name
+Lion
+$ curl localhost:8080/kv/age
+24
+$ curl localhost:8080/kv/language
+C++
+```
+
+You can, of couse, also POST and GET binary data, such as files (any data up to 4GB), or json, or whatever you like. It will always be returned as `application/octet-stream`, as of v1.0.0.
+
 ## Performance
 
 This library is *not* built for performance. However, on a Ryzen 5 4500U + nvme SSD + Linux machine, the following "benchmark" was achieved:
