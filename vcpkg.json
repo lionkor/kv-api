@@ -1,8 +1,9 @@
 {
-  "name": "my-project",
+  "name": "kv-api",
   "version-string": "0.1.0",
   "dependencies": [
       "fmt",
-      "doctest"
+      "doctest",
+      "cpp-httplib"
   ]
 }

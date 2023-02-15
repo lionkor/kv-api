@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
 include(cmake/Vcpkg.cmake) # needs to happen before project()
 
 project(
-    "MY_PROJECT" # replace this
+    "kv-api" # replace this
     VERSION 0.1.0
     LANGUAGES CXX
 )
@@ -25,7 +25,7 @@ set(PRJ_MAIN src/main.cpp)
 # set the source file containing the test's main
 set(PRJ_TEST_MAIN tests/test_main.cpp)
 # set include paths not part of libraries
-set(PRJ_INCLUDE_DIRS )
+set(PRJ_INCLUDE_DIRS ${CPPNETLIB_INCLUDE_DIRS})
 # set compile features (e.g. standard version)
 set(PRJ_COMPILE_FEATURES cxx_std_20)
 # set #defines (test enable/disable not included here)
@@ -35,11 +35,13 @@ set(PRJ_LIBRARIES
     fmt::fmt
     doctest::doctest
     Threads::Threads
+    httplib::httplib
 )
 
 # add dependency find_package calls and similar here
 find_package(fmt CONFIG REQUIRED)
 find_package(doctest CONFIG REQUIRED)
+find_package(httplib CONFIG REQUIRED)
 
 # to enable multithreading and the Threads::Threads dependency
 include(FindThreads)
