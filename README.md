@@ -1,12 +1,18 @@
 # KV API
 
-A simple persistent key-value store with REST API, written in C++.
+A simple persistent (disk-backed) key-value store with REST API, written in C++.
 
 ## How to use
 
-To STORE a value in this key-value store, POST to the endpoint `/kv/my-key` with the body of the request as the value.
-For example, `curl -X POST http://HOST:PORT/kv/my-key-2 --data "Hello world!"` will cause the key-value pair `my-key-2=Hello world!` to be stored.
-To LOAD / GET a value, use a GET request to the same endpoint. For example, to get the value of key `my-key-2`, GET the `/kv/my-key-2` endpoint.
+Do NOT expose this to the internet without sufficient authentication by a proxy. 
+This API is meant as an internal (local network) API and does not protect against attacks of any kind.
+
+**If you MUST host this open to the internet**, use something like nginx to reverse proxy, add TLS (https), 
+and add authentication (at the very least [HTTP basic authentication](https://docs.nginx.com/nginx/admin-guide/security-controls/configuring-http-basic-authentication/)).
+
+The key-value store is **append-only**. This means that any new keys, or any updates to old keys, create a new entry
+in the kv store on the disk. The key value store will thus grow with every key update. Use the `/merge` endpoint to 
+cause a merge of all keys.
 
 ### Endpoints
 
