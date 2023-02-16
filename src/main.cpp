@@ -65,7 +65,7 @@ public:
         size_t entries = 0;
         {
             // temporary kv store will handle closing the file again
-            KVStore tmp_store(temp_file);
+            KVStore tmp_store(temp_file.string());
             KVEntry entry;
             for (const auto& [key, pos] : m_keydir) {
                 (void)key; // ignore
