@@ -263,8 +263,12 @@ int main(int argc, char** argv) {
 
     if (!is_new) {
         fmt::print("Merging storefile to save space...\n");
-        kv.merge();
-        fmt::print("Done\n");
+        int ret = kv.merge();
+        if (ret < 0) {
+            fmt::print("Merge failed: {}\n", std::strerror(ret));
+        } else {
+            fmt::print("Done\n");
+        }
     }
 
     server.set_error_handler([&](const httplib::Request&, httplib::Response& res) {
