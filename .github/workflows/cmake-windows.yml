@@ -56,7 +56,5 @@ jobs:
     
       - name: Test
         working-directory: ${{github.workspace}}
-        shell: bash
         run: |
-            chmod +x ./kv-api-tests.exe
-            ./kv-api-tests.exe
+            .\kv-api-tests.exe
