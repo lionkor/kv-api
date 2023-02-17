@@ -45,7 +45,7 @@ int KVStore::write_entry_impl(const KVEntry& entry) {
     }
     return 0;
 }
-int KVStore::read_entry(const std::string& key, std::vector<uint8_t>& out_value) {
+int KVStore::read_entry(const std::string& key, std::vector<uint8_t>& out_value, std::string& out_mime) {
     KVEntry entry;
     std::unique_lock lock(m_mtx);
     if (m_keydir.contains(key)) {
@@ -64,14 +64,17 @@ int KVStore::read_entry(const std::string& key, std::vector<uint8_t>& out_value)
         return -EIO;
     }
     std::swap(out_value, entry.value);
+    std::swap(out_mime, entry.mime);
     return 0;
 }
-int KVStore::write_entry(const std::string& key, const std::vector<uint8_t>& value) {
+int KVStore::write_entry(const std::string& key, const std::vector<uint8_t>& value, const std::string& mime) {
     KVEntry entry {
         .key_length = { .value = static_cast<uint32_t>(key.size()) },
-        .key = key,
         .value_length = { .value = static_cast<uint32_t>(value.size()) },
+        .mime_length = { .value = static_cast<uint32_t>(mime.size()) },
+        .key = key,
         .value = value,
+        .mime = mime,
     };
     std::unique_lock lock(m_mtx);
     int ret = write_entry_impl(entry);
@@ -242,6 +245,7 @@ KVStore::KVStore(const std::string& filename)
 int KVStore::KVEntry::write_to_file(std::FILE* file) const {
     assert(key_length.value == key.size());
     assert(value_length.value == value.size());
+    assert(mime_length.value == mime.size());
     int ret = file_write(key_length.bytes, sizeof(key_length.bytes), file);
     if (ret != 0) {
         return ret;
@@ -250,11 +254,19 @@ int KVStore::KVEntry::write_to_file(std::FILE* file) const {
     if (ret != 0) {
         return ret;
     }
+    ret = file_write(mime_length.bytes, sizeof(mime_length.bytes), file);
+    if (ret != 0) {
+        return ret;
+    }
     ret = file_write(key.data(), key.size(), file);
     if (ret != 0) {
         return ret;
     }
     ret = file_write(value.data(), value.size(), file);
+    if (ret != 0) {
+        return errno;
+    }
+    ret = file_write(mime.data(), mime.size(), file);
     if (ret != 0) {
         return errno;
     }
@@ -269,6 +281,10 @@ int KVStore::KVEntry::read_from_file(std::FILE* file) {
     if (ret != 0) {
         return ret;
     }
+    ret = file_read(mime_length.bytes, sizeof(mime_length.bytes), file);
+    if (ret != 0) {
+        return ret;
+    }
     key.resize(key_length.value, ' ');
     ret = file_read(key.data(), key.size(), file);
     if (ret != 0) {
@@ -278,6 +294,11 @@ int KVStore::KVEntry::read_from_file(std::FILE* file) {
     ret = file_read(value.data(), value.size(), file);
     if (ret != 0) {
         return errno;
+    }
+    mime.resize(mime_length.value, ' ');
+    ret = file_read(mime.data(), mime.size(), file);
+    if (ret != 0) {
+        return ret;
     }
     return 0;
 }
@@ -290,46 +311,56 @@ TEST_CASE("KVStore store / load") {
         SUBCASE("normal string") {
             std::string msg = "hello, world";
             std::string key = "my-key";
+            std::string mime = "text/plain";
             std::vector<uint8_t> value(msg.begin(), msg.end());
 
-            int ret = store.write_entry(key, value);
+            int ret = store.write_entry(key, value, mime);
 
             CHECK_EQ(ret, 0);
 
             std::vector<uint8_t> r_value;
-            ret = store.read_entry(key, r_value);
+            std::string r_mime;
+            ret = store.read_entry(key, r_value, r_mime);
             CHECK_EQ(ret, 0);
+            CHECK_EQ(mime, r_mime);
             CHECK(std::equal(value.begin(), value.end(), r_value.begin(), r_value.end()));
         }
         SUBCASE("normal binary") {
             std::string key = "my-key";
+            std::string mime = "application/octet-stream";
             std::vector<uint8_t> value = { 0, 5, 3, 134, 5, 0, 1, 0, 0 };
 
-            int ret = store.write_entry(key, value);
+            int ret = store.write_entry(key, value, mime);
 
             CHECK_EQ(ret, 0);
 
             std::vector<uint8_t> r_value;
-            ret = store.read_entry(key, r_value);
+            std::string r_mime;
+            ret = store.read_entry(key, r_value, r_mime);
             CHECK_EQ(ret, 0);
+            CHECK_EQ(mime, r_mime);
             CHECK(std::equal(value.begin(), value.end(), r_value.begin(), r_value.end()));
         }
         SUBCASE("multiple same key same value") {
             std::string key = "my-key";
+            std::string mime = "application/octet-stream";
             std::vector<uint8_t> value = { 0, 5, 3, 134, 5, 0, 1, 0, 0 };
 
             for (size_t i = 0; i < 10; ++i) {
-                int ret = store.write_entry(key, value);
+                int ret = store.write_entry(key, value, mime);
                 CHECK_EQ(ret, 0);
             }
 
             std::vector<uint8_t> r_value;
-            int ret = store.read_entry(key, r_value);
+            std::string r_mime;
+            int ret = store.read_entry(key, r_value, r_mime);
             CHECK_EQ(ret, 0);
+            CHECK_EQ(mime, r_mime);
             CHECK(std::equal(value.begin(), value.end(), r_value.begin(), r_value.end()));
         }
         SUBCASE("multiple same key different value") {
             std::string key = "my-key";
+            std::string mime = "application/octet-stream";
             std::vector<uint8_t> value = { 0, 5, 3, 134, 5, 0, 1, 0, 0 };
 
             for (size_t i = 0; i < 10; ++i) {
@@ -338,21 +369,24 @@ TEST_CASE("KVStore store / load") {
                     static_cast<unsigned char>(i * 2),
                     static_cast<unsigned char>(i * 3)
                 };
-                int ret = store.write_entry(key, temp_value);
+                int ret = store.write_entry(key, temp_value, mime);
                 CHECK_EQ(ret, 0);
             }
 
             // finally write the last value, which is the one we then expect to read
-            int ret = store.write_entry(key, value);
+            int ret = store.write_entry(key, value, mime);
             CHECK_EQ(ret, 0);
 
             std::vector<uint8_t> r_value;
-            ret = store.read_entry(key, r_value);
+            std::string r_mime;
+            ret = store.read_entry(key, r_value, r_mime);
             CHECK_EQ(ret, 0);
+            CHECK_EQ(mime, r_mime);
             CHECK(std::equal(value.begin(), value.end(), r_value.begin(), r_value.end()));
         }
         SUBCASE("multiple writes, merge, read") {
             std::string key = "my-key";
+            std::string mime = "application/octet-stream";
             std::vector<uint8_t> value = { 0, 5, 3, 134, 5, 0, 1, 0, 0 };
 
             for (size_t i = 0; i < 10; ++i) {

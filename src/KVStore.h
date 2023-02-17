@@ -19,11 +19,15 @@ private:
         uint32_t value;
         uint8_t bytes[sizeof(uint32_t)];
     };
+    // first 8 bytes are zero
+    // and must be the first thing in the file
     struct KVEntry {
         KVSize key_length;
-        std::string key;
         KVSize value_length;
+        KVSize mime_length;
+        std::string key;
         std::vector<uint8_t> value;
+        std::string mime;
 
         int read_from_file(std::FILE* file);
 
@@ -51,10 +55,10 @@ public:
 
     int index();
 
-    int write_entry(const std::string& key, const std::vector<uint8_t>& value);
+    int write_entry(const std::string& key, const std::vector<uint8_t>& value, const std::string& mime);
 
     // returns -1 on error, 0 on found and read, and 1 on not found
-    int read_entry(const std::string& key, std::vector<uint8_t>& out_value);
+    int read_entry(const std::string& key, std::vector<uint8_t>& out_value, std::string& out_mime);
 
 private:
     int write_entry_impl(const KVEntry& entry);
