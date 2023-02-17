@@ -81,3 +81,7 @@ cmake --build bin --parallel
 
 Executable `./bin/kv-api` is the program. Simply run it, instructions should be clear from the output.
 
+## Troubleshooting
+
+Any known issues are on GitHub under [issues](https://github.com/lionkor/kv-api/issues). When opening an issue, supply the version number and commit. For example, when you run `kv-api`, the first line is something like `KV API v1.1.0-100e648`.
+
