@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
 
+if(WIN32)
+    set(VCPKG_TARGET_TRIPLET "x64-windows-static")
+endif()
+
 include(cmake/Vcpkg.cmake) # needs to happen before project()
 
 project(
@@ -17,9 +21,9 @@ include(cmake/Git.cmake)
 ### SETTINGS ###
 
 # add all headers (.h, .hpp) to this
-set(PRJ_HEADERS )
+set(PRJ_HEADERS src/KVStore.h)
 # add all source files (.cpp) to this, except the one with main()
-set(PRJ_SOURCES )
+set(PRJ_SOURCES src/KVStore.cpp)
 # set the source file containing main()
 set(PRJ_MAIN src/main.cpp)
 # set the source file containing the test's main
@@ -69,9 +73,16 @@ endif(UNIX)
 
 include(cmake/CompilerWarnings.cmake)
 
-# set MT library for msvc - this is required (says documentation)
-# linux/mac/etc should simply ignore this by default.
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+if(MSVC)
+    # set MT library for msvc - this is required (says documentation)
+    # linux/mac/etc should simply ignore this by default.
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+    add_compile_options(
+        $<$<CONFIG:>:/MT> #---------|
+        $<$<CONFIG:Debug>:/MTd> #---|-- Statically link the runtime libraries
+        $<$<CONFIG:Release>:/MT> #--|
+    )
+endif()
 
 set(PRJ_DEFINITIONS ${PRJ_DEFINITIONS}
     PRJ_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
@@ -79,7 +90,6 @@ set(PRJ_DEFINITIONS ${PRJ_DEFINITIONS}
     PRJ_VERSION_PATCH=${PROJECT_VERSION_PATCH}
     PRJ_GIT_HASH="${PRJ_GIT_HASH}"
 )
-
 
 add_executable(${PROJECT_NAME} ${PRJ_HEADERS} ${PRJ_SOURCES} ${PRJ_MAIN})
 target_link_libraries(${PROJECT_NAME} ${PRJ_LIBRARIES})

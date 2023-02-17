@@ -1,0 +1,59 @@
+name: CMake Windows Build
+
+on: [push]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  windows-build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: "recursive"
+
+      - name: Create Build Environment
+        run: cmake -E make_directory ${{github.workspace}}/build-windows
+
+      - name: Configure CMake
+        shell: bash
+        working-directory: ${{github.workspace}}/build-windows
+        run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_CXX_COMPILER=g++-10
+
+      - name: Build
+        working-directory: ${{github.workspace}}/build-windows
+        shell: bash
+        run: cmake --build . --config $BUILD_TYPE -t kv-api --parallel
+      
+      - name: Build Tests
+        working-directory: ${{github.workspace}}/build-windows
+        shell: bash
+        run: cmake --build . --config $BUILD_TYPE -t kv-api-tests --parallel
+      
+      - name: Archive executable
+        uses: actions/upload-artifact@v2
+        with:
+          name: kv-api.exe
+          path: ${{github.workspace}}/build-windows/Release/kv-api.exe
+      
+      - name: Archive tests
+        uses: actions/upload-artifact@v2
+        with:
+          name: kv-api-tests.exe
+          path: ${{github.workspace}}/build-windows/Release/kv-api-tests.exe
+
+            #  run-tests:
+            #    needs: windows-build
+            #    runs-on: ubuntu-22.04
+            #
+            #    steps:
+            #      - uses: actions/download-artifact@master
+            #        with:
+            #          name: kv-api-tests.exe
+            #          path: ${{github.workspace}}
+            #    
+            #      - name: Test
+            #        working-directory: ${{github.workspace}}
+            #        run: start kv-api-tests.exe
