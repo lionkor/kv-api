@@ -1,3 +1,4 @@
+#include <asm-generic/errno-base.h>
 #include <cerrno>
 #include <csignal>
 #include <cstdint>
@@ -12,6 +13,35 @@
 #include <string>
 #include <unordered_map>
 
+// error checked version of fwrite
+// returns negative value on error, otherwise 0
+static int file_write(const void* buffer, size_t size, std::FILE* file) {
+    size_t n = std::fwrite(buffer, 1, size, file);
+    if (n != size) {
+        // error
+        return errno;
+    }
+    return 0;
+}
+
+// error checked version of fread
+// returns negative value on error, positive value if less than size was read,
+// and otherwise 0
+static int file_read(void* buffer, size_t size, std::FILE* file) {
+    size_t n = std::fread(buffer, 1, size, file);
+    if (n != size) {
+        // error?
+        if (std::feof(file)) {
+            return static_cast<int>(n);
+        } else if (std::ferror(file)) {
+            return errno;
+        } else {
+            return -1; // should never happen :)
+        }
+    }
+    return 0;
+}
+
 class KVStore {
 private:
     union KVSize {
@@ -23,6 +53,50 @@ private:
         std::string key;
         KVSize value_length;
         std::vector<uint8_t> value;
+
+        int read_from_file(std::FILE* file) {
+            int ret = file_read(key_length.bytes, sizeof(key_length.bytes), file);
+            if (ret != 0) {
+                return ret;
+            }
+            ret = file_read(value_length.bytes, sizeof(value_length.bytes), file);
+            if (ret != 0) {
+                return ret;
+            }
+            key.resize(key_length.value, ' ');
+            ret = file_read(key.data(), key.size(), file);
+            if (ret != 0) {
+                return ret;
+            }
+            value.resize(value_length.value);
+            ret = file_read(value.data(), value.size(), file);
+            if (ret != 0) {
+                return errno;
+            }
+            return 0;
+        }
+
+        int write_to_file(std::FILE* file) const {
+            assert(key_length.value == key.size());
+            assert(value_length.value == value.size());
+            int ret = file_write(key_length.bytes, sizeof(key_length.bytes), file);
+            if (ret != 0) {
+                return ret;
+            }
+            ret = file_write(value_length.bytes, sizeof(value_length.bytes), file);
+            if (ret != 0) {
+                return ret;
+            }
+            ret = file_write(key.data(), key.size(), file);
+            if (ret != 0) {
+                return ret;
+            }
+            ret = file_write(value.data(), value.size(), file);
+            if (ret != 0) {
+                return errno;
+            }
+            return 0;
+        }
     };
 
     KVStore() = default;
@@ -69,13 +143,19 @@ public:
             KVEntry entry;
             for (const auto& [key, pos] : m_keydir) {
                 (void)key; // ignore
-                std::fsetpos(m_file, &pos);
-                std::fread(entry.key_length.bytes, 1, sizeof(entry.key_length.bytes), m_file);
-                std::fread(entry.value_length.bytes, 1, sizeof(entry.value_length.bytes), m_file);
-                entry.key.resize(entry.key_length.value, ' ');
-                std::fread(entry.key.data(), 1, entry.key_length.value, m_file);
-                entry.value.resize(entry.value_length.value);
-                std::fread(entry.value.data(), 1, entry.value_length.value, m_file);
+                ret = std::fsetpos(m_file, &pos);
+                if (ret < 0) {
+                    return ret;
+                }
+                ret = entry.read_from_file(m_file);
+                if (ret < 0) {
+                    // error
+                    fmt::print("merge: failed due to error reading file: {}\n", ret);
+                    return ret;
+                } else if (ret > 0) {
+                    fmt::print("merge: end of file\n");
+                    break;
+                }
                 tmp_store.write_entry_impl(entry);
                 ++entries;
             }
@@ -124,29 +204,19 @@ public:
         // TODO: handle errors
         fmt::print("index: collecting kv entries...\n");
         int ret = 0;
-        size_t n = 0;
         for (;;) {
             std::fpos_t pos;
             ret = std::fgetpos(m_file, &pos);
             if (ret < 0) {
                 return errno;
             }
-            n = std::fread(entry.key_length.bytes, 1, sizeof(entry.key_length.bytes), m_file);
-            if (n == 0) {
-                break;
-            }
-            n = std::fread(entry.value_length.bytes, 1, sizeof(entry.value_length.bytes), m_file);
-            if (n == 0) {
-                break;
-            }
-            entry.key.resize(entry.key_length.value, ' ');
-            n = std::fread(entry.key.data(), 1, entry.key_length.value, m_file);
-            if (n == 0) {
-                break;
-            }
-            // skip value
-            ret = std::fseek(m_file, entry.value_length.value, SEEK_CUR);
-            if (ret != 0) {
+            ret = entry.read_from_file(m_file);
+            if (ret < 0) {
+                // error
+                fmt::print("index: error reading from file: {}\n", std::strerror(ret));
+                return ret;
+            } else if (ret > 0) {
+                fmt::print("index: end of file\n");
                 break;
             }
             m_keydir[entry.key] = pos;
@@ -184,20 +254,14 @@ public:
         } else {
             return 1;
         }
-        if (std::fread(entry.key_length.bytes, 1, sizeof(entry.key_length.bytes), m_file) < 0) {
-            return errno;
+        int ret = entry.read_from_file(m_file);
+        if (ret < 0) {
+            // error
+            return ret;
+        } else if (ret > 0) {
+            return -EIO;
         }
-        if (std::fread(entry.value_length.bytes, 1, sizeof(entry.value_length.bytes), m_file) < 0) {
-            return errno;
-        }
-        // skip reading key
-        if (std::fseek(m_file, entry.key_length.value, SEEK_CUR) < 0) {
-            return errno;
-        }
-        out_value.resize(entry.value_length.value);
-        if (std::fread(out_value.data(), 1, out_value.size(), m_file) < 0) {
-            return errno;
-        }
+        std::swap(out_value, entry.value);
         return 0;
     }
 
@@ -209,18 +273,9 @@ private:
             return errno;
         }
         m_keydir[entry.key] = pos;
-        // TODO: Consolidate this into one fwrite call
-        if (std::fwrite(entry.key_length.bytes, 1, sizeof(entry.key_length.bytes), m_file) < 0) {
-            return errno;
-        }
-        if (std::fwrite(entry.value_length.bytes, 1, sizeof(entry.value_length.bytes), m_file) < 0) {
-            return errno;
-        }
-        if (std::fwrite(entry.key.data(), 1, entry.key.size(), m_file) < 0) {
-            return errno;
-        }
-        if (std::fwrite(entry.value.data(), 1, entry.value.size(), m_file) < 0) {
-            return errno;
+        int ret = entry.write_to_file(m_file);
+        if (ret < 0) {
+            return ret;
         }
         return 0;
     }
