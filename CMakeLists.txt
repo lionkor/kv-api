@@ -73,9 +73,16 @@ endif(UNIX)
 
 include(cmake/CompilerWarnings.cmake)
 
-# set MT library for msvc - this is required (says documentation)
-# linux/mac/etc should simply ignore this by default.
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+if(MSVC)
+    # set MT library for msvc - this is required (says documentation)
+    # linux/mac/etc should simply ignore this by default.
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+    add_compile_options(
+        $<$<CONFIG:>:/MT> #---------|
+        $<$<CONFIG:Debug>:/MTd> #---|-- Statically link the runtime libraries
+        $<$<CONFIG:Release>:/MT> #--|
+    )
+endif()
 
 set(PRJ_DEFINITIONS ${PRJ_DEFINITIONS}
     PRJ_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
@@ -83,7 +90,6 @@ set(PRJ_DEFINITIONS ${PRJ_DEFINITIONS}
     PRJ_VERSION_PATCH=${PROJECT_VERSION_PATCH}
     PRJ_GIT_HASH="${PRJ_GIT_HASH}"
 )
-
 
 add_executable(${PROJECT_NAME} ${PRJ_HEADERS} ${PRJ_SOURCES} ${PRJ_MAIN})
 target_link_libraries(${PROJECT_NAME} ${PRJ_LIBRARIES})
