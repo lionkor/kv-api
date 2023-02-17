@@ -51,7 +51,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@master
         with:
-          name: kv-api-tests
+          name: kv-api-tests.exe
           path: ${{github.workspace}}
     
       - name: Test
