@@ -19,7 +19,7 @@ cause a merge of all keys (this will cause outdated values to finally be discard
 
 ### Endpoints
 
-NOTE: KEY must match the regex `[a-zA-Z\d\-_]+`.
+NOTE: KEY must match the regex `.+` (before version v1.1.0 it was `[a-zA-Z\d\-_]+`).
 
 - `GET /kv/KEY`: Get the value for the key supplied after `/kv/`.
 - `POST /kv/KEY`: Put a new value for the key supplied after `/kv/`. New value of the key goes in the body.

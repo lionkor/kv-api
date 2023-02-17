@@ -29,7 +29,7 @@ R"(
         To LOAD / GET a value, use a GET request to the same endpoint. For example, to get the value of key <code>my-key-2</code>, GET the <code>/kv/my-key-2</code> endpoint.
     </p>
     <h3>Endpoints</h3>
-    <b>NOTE:</b> KEY must match the regex <code>[a-zA-Z\d\-_]+</code> .
+    <b>NOTE:</b> KEY must match the regex <code>.+</code> .
     <ul>
         <li><b><code>GET /kv/KEY</code></b> : Get the value for the key supplied after <code>/kv/</code>.</li>
         <li><b><code>POST /kv/KEY</code></b> : Put a new value for the key supplied after <code>/kv/</code>. New value of the key goes in the body.</li>
