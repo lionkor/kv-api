@@ -1,6 +1,7 @@
 #include "KVStore.h"
 
 #include <doctest/doctest.h>
+#include <array>
 
 // error checked version of fwrite
 // returns negative value on error, otherwise 0
@@ -83,11 +84,13 @@ int KVStore::write_entry(const std::string& key, const std::vector<uint8_t>& val
 }
 int KVStore::index() {
     std::unique_lock lock(m_mtx);
-    std::fseek(m_file, 0, SEEK_SET);
+    int ret = std::fseek(m_file, 12, SEEK_SET);
+    if (ret < 0) {
+        return errno;
+    }
     KVEntry entry;
     // TODO: handle errors
     fmt::print("index: collecting kv entries...\n");
-    int ret = 0;
     for (;;) {
         std::fpos_t pos;
         ret = std::fgetpos(m_file, &pos);
@@ -137,7 +140,7 @@ int KVStore::merge() {
             (void)key; // ignore
             ret = std::fsetpos(m_file, &pos);
             if (ret < 0) {
-                return ret;
+                return errno;
             }
             ret = entry.read_from_file(m_file);
             if (ret < 0) {
@@ -201,10 +204,39 @@ KVStore::~KVStore() {
     m_file = nullptr;
 }
 KVStore::KVStore(const std::string& filename)
-    : m_file(std::fopen(filename.c_str(), "a+b"))
-    , m_filename(filename) {
-    if (!m_file) {
-        throw std::runtime_error(fmt::format("could not open file '{}': {}", filename, std::strerror(errno)));
+    : m_filename(filename) {
+    if (!std::filesystem::exists(filename) || std::filesystem::file_size(filename) == 0) {
+        m_file = std::fopen(filename.c_str(), "w+b");
+        if (!m_file) {
+            throw std::runtime_error(fmt::format("could not create file '{}': {}", filename, std::strerror(errno)));
+        }
+        KVHeader hdr;
+        hdr.set_version(PRJ_VERSION_MAJOR, PRJ_VERSION_MINOR, PRJ_VERSION_PATCH);
+        int ret = hdr.write_to_file(m_file);
+        if (ret < 0) {
+            throw std::runtime_error(fmt::format("could not write header into new file '{}': {}", filename, std::strerror(errno)));
+        }
+    } else {
+        m_file = std::fopen(filename.c_str(), "a+b");
+        if (!m_file) {
+            throw std::runtime_error(fmt::format("could not create file '{}': {}", filename, std::strerror(errno)));
+        }
+    }
+    if (!KVHeader::is_header(m_file)) {
+        fmt::print("file has no header, must be a kvstore from before v2.0.0.\n");
+        // TODO: convert from old to new format
+        assert(!"not implemented");
+    }
+    int ret = m_header.parse_from_file(m_file);
+    if (ret < 0) {
+        fmt::print("error: failed to parse header of kvstore: {}\n", std::strerror(ret));
+        throw std::runtime_error("failed to parse header");
+    }
+    auto [maj, min, pat] = m_header.get_version();
+    if (PRJ_VERSION_MAJOR != maj) {
+        fmt::print("error: header version mismatch: {} (ours) != {} (file)\n", PRJ_VERSION_MAJOR, maj);
+        // TODO: Implement porting to newer versions
+        throw std::runtime_error("invalid kvstore version");
     }
 }
 int KVStore::KVEntry::write_to_file(std::FILE* file) const {
@@ -329,21 +361,106 @@ TEST_CASE("KVStore store / load") {
                     static_cast<unsigned char>(i * 2),
                     static_cast<unsigned char>(i * 3)
                 };
-                int ret = store.write_entry(key, temp_value);
+                int ret = store.write_entry(key, temp_value, mime);
                 CHECK_EQ(ret, 0);
             }
 
             // finally write the last value, which is the one we then expect to read
-            int ret = store.write_entry(key, value);
+            int ret = store.write_entry(key, value, mime);
             CHECK_EQ(ret, 0);
 
             store.merge();
 
             std::vector<uint8_t> r_value;
-            ret = store.read_entry(key, r_value);
+            std::string r_mime;
+            ret = store.read_entry(key, r_value, r_mime);
             CHECK_EQ(ret, 0);
+            CHECK_EQ(mime, r_mime);
             CHECK(std::equal(value.begin(), value.end(), r_value.begin(), r_value.end()));
         }
     }
     std::filesystem::remove(file);
+}
+bool KVStore::KVHeader::is_header(std::FILE* file) {
+    int ret = std::fseek(file, 0, SEEK_SET);
+    if (ret < 0) {
+        return false;
+    }
+    // to read first 8 bytes into
+    uint64_t zeros;
+    ret = file_read(reinterpret_cast<uint8_t*>(&zeros), sizeof(zeros), file);
+    if (ret != 0) {
+        return false;
+    }
+    // check first 8 bytes are zero
+    // this would mean its an invalid entry, and also the start of the kvheader
+    if (zeros != 0) {
+        return false;
+    }
+    KVSize size; // 32 bit value to read into
+    ret = file_read(size.bytes, sizeof(size.bytes), file);
+    if (ret != 0) {
+        return false;
+    }
+    return true;
+}
+
+std::tuple<uint8_t, uint8_t, uint8_t> KVStore::KVHeader::get_version() const {
+    return {
+        version.value & 0xff,
+        (version.value & 0xff00) >> 8,
+        (version.value & 0xff0000) >> 16,
+    };
+}
+int KVStore::KVHeader::parse_from_file(std::FILE* file) {
+    if (!is_header(file)) {
+        // shouldn't happen, as the user can / should check with is_header before trying to parse
+        fmt::print("error: supplied file's header is not a kv header!\n");
+        return -1;
+    }
+    // skip 8 bytes of zero (verified by is_header before)
+    int ret = std::fseek(file, 8, SEEK_SET);
+    if (ret < 0) {
+        return errno;
+    }
+    ret = file_read(version.bytes, sizeof(version.bytes), file);
+    if (ret < 0) {
+        return ret;
+    } else if (ret > 0) {
+        fmt::print("error: supplied file is not large enough to contain a header!\n");
+        return -1;
+    }
+    return 0;
+}
+void KVStore::KVHeader::set_version(uint8_t maj, uint8_t min, uint8_t pat) {
+    version.value |= maj;
+    version.value |= uint32_t(min << 8);
+    version.value |= uint32_t(pat << 16);
+}
+
+TEST_CASE("KVHeader version") {
+    KVStore::KVHeader hdr;
+    hdr.set_version(120, 24, 53);
+    auto [maj, min, pat] = hdr.get_version();
+    CHECK_EQ(maj, 120);
+    CHECK_EQ(min, 24);
+    CHECK_EQ(pat, 53);
+}
+
+int KVStore::KVHeader::write_to_file(std::FILE* file) {
+    int ret = std::fseek(file, 0, SEEK_SET);
+    if (ret < 0) {
+        return errno;
+    }
+    std::array<uint8_t, 8> zeroes;
+    std::fill(zeroes.begin(), zeroes.end(), 0);
+    ret = file_write(zeroes.data(), zeroes.size(), file);
+    if (ret < 0) {
+        return ret;
+    }
+    ret = file_write(version.bytes, sizeof(version.bytes), file);
+    if (ret < 0) {
+        return ret;
+    }
+    return 0;
 }
