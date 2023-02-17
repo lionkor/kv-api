@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
 
     fmt::print("KV API v{}.{}.{}-{}\n", PRJ_VERSION_MAJOR, PRJ_VERSION_MINOR, PRJ_VERSION_PATCH, PRJ_GIT_HASH);
     if (argc != 4) {
-        fmt::print("error: not enough arguments. <host> <port> <storefile> expected.\n");
+        fmt::print("error: not enough arguments. <host> <port> <storefile> expected.\n\texample: {} 127.0.0.1 8080 mystore.kvstore\n", argv[0]);
         return 1;
     }
 
