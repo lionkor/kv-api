@@ -56,5 +56,4 @@ jobs:
     
       - name: Test
         working-directory: ${{github.workspace}}
-        run: |
-            .\kv-api-tests.exe
+        run: start kv-api-tests.exe
