@@ -33,6 +33,16 @@ private:
     KVStore() = default;
 
 public:
+    struct KVHeader {
+        KVSize version = { .value = 0 };
+
+        void set_version(uint8_t maj, uint8_t min, uint8_t pat);
+        int write_to_file(std::FILE* file);
+        static bool is_header(std::FILE* file);
+        int parse_from_file(std::FILE* file);
+        std::tuple<uint8_t, uint8_t, uint8_t> get_version() const;
+    };
+
     KVStore(const std::string& filename);
 
     ~KVStore();
@@ -52,6 +62,8 @@ private:
     std::mutex m_mtx;
     std::FILE* m_file { nullptr };
     std::string m_filename;
+
+    KVHeader m_header;
 
     std::unordered_map<std::string, std::fpos_t> m_keydir;
 };

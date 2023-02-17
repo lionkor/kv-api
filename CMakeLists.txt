@@ -8,7 +8,7 @@ include(cmake/Vcpkg.cmake) # needs to happen before project()
 
 project(
     "kv-api"
-    VERSION 1.1.0
+    VERSION 2.0.0
     LANGUAGES CXX
 )
 
