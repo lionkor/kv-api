@@ -1,7 +1,7 @@
 # KV API
 
-[![CMake Linux Build](https://github.com/lionkor/kv-api/actions/workflows/cmake-linux.yml/badge.svg)](https://github.com/lionkor/kv-api/actions/workflows/cmake-linux.yml)
-[![CMake Windows Build](https://github.com/lionkor/kv-api/actions/workflows/cmake-windows.yml/badge.svg)](https://github.com/lionkor/kv-api/actions/workflows/cmake-windows.yml)
+[![Linux](https://github.com/lionkor/kv-api/actions/workflows/cmake-linux.yml/badge.svg)](https://github.com/lionkor/kv-api/actions/workflows/cmake-linux.yml)
+[![Windows](https://github.com/lionkor/kv-api/actions/workflows/cmake-windows.yml/badge.svg)](https://github.com/lionkor/kv-api/actions/workflows/cmake-windows.yml)
 
 A simple, fast, persistent (disk-backed) key-value store with REST API, written in C++.
 
