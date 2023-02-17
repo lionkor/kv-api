@@ -5,7 +5,7 @@
 
 // error checked version of fwrite
 // returns negative value on error, otherwise 0
-static int file_write(const void* buffer, size_t size, std::FILE* file) {
+[[nodiscard]] static int file_write(const void* buffer, size_t size, std::FILE* file) {
     size_t n = std::fwrite(buffer, 1, size, file);
     if (n != size) {
         // error
@@ -17,7 +17,7 @@ static int file_write(const void* buffer, size_t size, std::FILE* file) {
 // error checked version of fread
 // returns negative value on error, 1 if less than size was read,
 // and otherwise 0
-static int file_read(void* buffer, size_t size, std::FILE* file) {
+[[nodiscard]] static int file_read(void* buffer, size_t size, std::FILE* file) {
     size_t n = std::fread(buffer, 1, size, file);
     if (n != size) {
         // error?
