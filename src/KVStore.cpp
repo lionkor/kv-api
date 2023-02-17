@@ -498,3 +498,12 @@ int KVStore::KVHeader::write_to_file(std::FILE* file) {
     }
     return 0;
 }
+
+std::vector<std::string> KVStore::get_all_keys() const {
+    std::vector<std::string> result;
+    for (const auto& [key, pos] : m_keydir) {
+        (void)pos;
+        result.push_back(key);
+    }
+    return result;
+}

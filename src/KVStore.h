@@ -60,6 +60,8 @@ public:
     // returns -1 on error, 0 on found and read, and 1 on not found
     int read_entry(const std::string& key, std::vector<uint8_t>& out_value, std::string& out_mime);
 
+    std::vector<std::string> get_all_keys() const;
+
 private:
     int write_entry_impl(const KVEntry& entry);
 
