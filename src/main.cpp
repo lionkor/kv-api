@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
         res.set_content(fmt::format("error {}", res.status), "text/plain");
     });
 
-    server.Get(R"(/kv/(([a-zA-Z\d\-_])+))", [&](const httplib::Request& req, httplib::Response& res) {
+    server.Get(R"(/kv/(.+))", [&](const httplib::Request& req, httplib::Response& res) {
         auto path = req.matches[1];
         std::vector<uint8_t> data;
         int ret = kv.read_entry(path, data);
@@ -72,7 +72,7 @@ int main(int argc, char** argv) {
         }
     });
 
-    server.Post(R"(/kv/(([a-zA-Z\d\-_])+))", [&](const httplib::Request& req, httplib::Response& res) {
+    server.Post(R"(/kv/(.+))", [&](const httplib::Request& req, httplib::Response& res) {
         auto path = req.matches[1];
         std::vector<uint8_t> data;
         int ret = kv.write_entry(path, std::vector<uint8_t>(req.body.begin(), req.body.end()));
