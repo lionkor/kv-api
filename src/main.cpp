@@ -59,7 +59,8 @@ int main(int argc, char** argv) {
     server.Get(R"(/kv/(.+))", [&](const httplib::Request& req, httplib::Response& res) {
         auto path = req.matches[1];
         std::vector<uint8_t> data;
-        int ret = kv.read_entry(path, data);
+        std::string mime;
+        int ret = kv.read_entry(path, data, mime);
         fmt::print("GET /{}: {}\n", path.str(), ret == 1 ? "Not found" : std::strerror(ret));
         if (ret < 0) {
             res.set_content(fmt::format("error: {}", std::strerror(ret)), "text/plain");
@@ -68,15 +69,19 @@ int main(int argc, char** argv) {
             res.set_content("Not found", "text/plain");
             res.status = 404;
         } else {
-            res.set_content(reinterpret_cast<const char*>(data.data()), data.size(), "application/octet-stream");
+            res.set_content(reinterpret_cast<const char*>(data.data()), data.size(), mime);
         }
     });
 
     server.Post(R"(/kv/(.+))", [&](const httplib::Request& req, httplib::Response& res) {
         auto path = req.matches[1];
         std::vector<uint8_t> data;
-        int ret = kv.write_entry(path, std::vector<uint8_t>(req.body.begin(), req.body.end()));
-        fmt::print("POST /{}: {}\n", path.str(), std::strerror(ret));
+        std::string mime = req.get_header_value("Content-Type");
+        if (mime.empty()) {
+            mime = "application/octet-stream";
+        }
+        int ret = kv.write_entry(path, std::vector<uint8_t>(req.body.begin(), req.body.end()), mime);
+        fmt::print("POST /{} ({}): {}\n", path.str(), mime, std::strerror(ret));
         if (ret < 0) {
             res.set_content(std::strerror(ret), "text/plain");
             res.status = 500;
