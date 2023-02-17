@@ -31,6 +31,18 @@ jobs:
         working-directory: ${{github.workspace}}/build-windows
         shell: bash
         run: cmake --build . --config $BUILD_TYPE -t kv-api-tests --parallel
+      
+      - name: Archive executable
+        uses: actions/upload-artifact@v2
+        with:
+          name: kv-api.exe
+          path: ${{github.workspace}}/build-windows/Release/kv-api.exe
+      
+      - name: Archive tests
+        uses: actions/upload-artifact@v2
+        with:
+          name: kv-api-tests.exe
+          path: ${{github.workspace}}/build-windows/Release/kv-api-tests.exe
 
   run-tests:
     needs: windows-build

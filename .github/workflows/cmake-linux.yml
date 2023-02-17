@@ -32,6 +32,18 @@ jobs:
         shell: bash
         run: cmake --build . --config $BUILD_TYPE -t kv-api-tests --parallel
 
+      - name: Archive executable
+        uses: actions/upload-artifact@v2
+        with:
+          name: kv-api
+          path: ${{github.workspace}}/build-linux/kv-api
+      
+      - name: Archive tests
+        uses: actions/upload-artifact@v2
+        with:
+          name: kv-api-tests
+          path: ${{github.workspace}}/build-linux/kv-api-tests
+
   run-tests:
     needs: linux-build
     runs-on: ubuntu-22.04
