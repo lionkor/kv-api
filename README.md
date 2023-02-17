@@ -19,7 +19,7 @@ cause a merge of all keys (this will cause outdated values to finally be discard
 
 ### Endpoints
 
-NOTE: KEY must match the regex `.+` (before version v1.1.0 it was `[a-zA-Z\d\-_]+`). For example, `my-key-1`, `this/looks/like/a/path` and anything else matching `.+` will work.
+NOTE: KEY must match the regex `.+` (before version v1.1.0 it was `[a-zA-Z\d\-_]+`). For example, `my-key-1`, `this/looks/like/a/path` and anything else matching `.+` will work. Please be aware that e.g. `/../` is special and will be resolved.
 
 - `GET /kv/KEY`: Get the value for the key supplied after `/kv/`.
 - `POST /kv/KEY`: Put a new value for the key supplied after `/kv/`. New value of the key goes in the body.
