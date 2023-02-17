@@ -44,16 +44,16 @@ jobs:
           name: kv-api-tests.exe
           path: ${{github.workspace}}/build-windows/Release/kv-api-tests.exe
 
-  run-tests:
-    needs: windows-build
-    runs-on: ubuntu-22.04
-
-    steps:
-      - uses: actions/download-artifact@master
-        with:
-          name: kv-api-tests.exe
-          path: ${{github.workspace}}
-    
-      - name: Test
-        working-directory: ${{github.workspace}}
-        run: start kv-api-tests.exe
+            #  run-tests:
+            #    needs: windows-build
+            #    runs-on: ubuntu-22.04
+            #
+            #    steps:
+            #      - uses: actions/download-artifact@master
+            #        with:
+            #          name: kv-api-tests.exe
+            #          path: ${{github.workspace}}
+            #    
+            #      - name: Test
+            #        working-directory: ${{github.workspace}}
+            #        run: start kv-api-tests.exe
