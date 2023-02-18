@@ -20,12 +20,18 @@ static void sighandler(int) {
     server.stop();
 }
 
-int main(int argc, char** argv) {
+int main(int argc, const char** argv) {
     setlocale(LC_ALL, "C");
+
+    const char* defaults[] = { argv[0], "127.0.0.1", "8080", "default.kvs" };
+    if (argc == 1) {
+        argc = 4;
+        argv = defaults;
+    }
 
     fmt::print("KV API v{}.{}.{}-{}\n", PRJ_VERSION_MAJOR, PRJ_VERSION_MINOR, PRJ_VERSION_PATCH, PRJ_GIT_HASH);
     if (argc != 4) {
-        fmt::print("error: not enough arguments. <host> <port> <storefile> expected.\n\texample: {} 127.0.0.1 8080 mystore.kvstore\n", argv[0]);
+        fmt::print("error: not enough arguments. <host> <port> <storefile> expected.\n\texample: {} 127.0.0.1 8080 mystore.kvs\n", argv[0]);
         return 1;
     }
 
@@ -120,4 +126,3 @@ int main(int argc, char** argv) {
     server.listen(host, port);
     fmt::print("Terminating gracefully\n");
 }
-
