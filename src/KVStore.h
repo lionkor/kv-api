@@ -47,7 +47,7 @@ public:
         std::tuple<uint8_t, uint8_t, uint8_t> get_version() const;
     };
 
-    KVStore(const std::string& filename, bool temp = false);
+    KVStore(const std::string& filename);
 
     ~KVStore();
 
@@ -61,6 +61,8 @@ public:
     int read_entry(const std::string& key, std::vector<uint8_t>& out_value, std::string& out_mime);
 
     std::vector<std::string> get_all_keys() const;
+
+    std::string getFilename();
 
 private:
     int write_entry_impl(const KVEntry& entry);

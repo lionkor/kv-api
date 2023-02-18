@@ -13,6 +13,7 @@
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <string>
+#include <map>
 #include <unordered_map>
 
 static httplib::Server server {};
@@ -25,51 +26,45 @@ static void sighandler(int) {
 int main(int argc, const char** argv) {
     setlocale(LC_ALL, "C");
 
-    const char* defaults[] = { argv[0], "127.0.0.1", "8080", "default.kvs" };
+    const char* defaults[] = { argv[0], "127.0.0.1", "8080" };
     if (argc == 1) {
-        argc = 4;
+        argc = 3;
         argv = defaults;
     }
 
     fmt::print("KV API v{}.{}.{}-{}\n", PRJ_VERSION_MAJOR, PRJ_VERSION_MINOR, PRJ_VERSION_PATCH, PRJ_GIT_HASH);
-    if (argc != 4) {
-        fmt::print("error: not enough arguments. <host> <port> <storefile> expected.\n\texample: {} 127.0.0.1 8080 mystore.kvs\n", argv[0]);
+    if (argc != 3) {
+        fmt::print("error: not enough arguments. <host> <port> expected.\n\texample: {} 127.0.0.1 8080\n", argv[0]);
         return 1;
     }
 
-    std::string storefile = argv[3];
-
     server.set_payload_max_length(std::numeric_limits<uint32_t>::max());
 
-    bool is_new = true;
-
-    if (std::filesystem::exists("store/"+storefile)) {
-        fmt::print("Storefile \"{}\" already exists. KV will index existing content.\n", storefile);
-        is_new = false;
-    }
-
-    KVStore kv(storefile);
-
-    if (!is_new) {
-        fmt::print("Merging storefile to save space...\n");
-        int ret = kv.merge();
-        if (ret < 0) {
-            fmt::print("Merge failed: {}\n", std::strerror(ret));
-        } else {
-            fmt::print("Done\n");
-        }
+    std::map<std::string, KVStore*> stores;
+    std::filesystem::directory_iterator storePaths = std::filesystem::directory_iterator("store");
+    for (const auto& storePath : storePaths) {
+        KVStore* store = new KVStore(storePath.path().string());
+        stores[storePath.path().stem().string()] = store;
     }
 
     server.set_error_handler([&](const httplib::Request&, httplib::Response& res) {
         res.set_content(fmt::format("error {}", res.status), "text/plain");
     });
 
-    server.Get(R"(/kv/(.+))", [&](const httplib::Request& req, httplib::Response& res) {
-        auto path = req.matches[1];
+    server.Get(R"(/kv/(.+)/(.+))", [&](const httplib::Request& req, httplib::Response& res) {
+        if (stores.find(req.matches[1]) == stores.end() || req.matches.length() < 3) {
+            res.set_content("Not found", "text/plain");
+            res.status = 404;
+            return;
+        }
+
+        KVStore* store = stores[req.matches[1]];
+        auto key = req.matches[2];
+
         std::vector<uint8_t> data;
         std::string mime;
-        int ret = kv.read_entry(path, data, mime);
-        fmt::print("GET /{}: {}\n", path.str(), ret == 1 ? "Not found" : std::strerror(ret));
+        int ret = store->read_entry(key, data, mime);
+        fmt::print("GET /{}: {}\n", key.str(), ret == 1 ? "Not found" : std::strerror(ret));
         if (ret < 0) {
             res.set_content(fmt::format("error: {}", std::strerror(ret)), "text/plain");
             res.status = 500;
@@ -81,15 +76,26 @@ int main(int argc, const char** argv) {
         }
     });
 
-    server.Post(R"(/kv/(.+))", [&](const httplib::Request& req, httplib::Response& res) {
-        auto path = req.matches[1];
+    server.Post(R"(/kv/(.+)/(.+))", [&](const httplib::Request& req, httplib::Response& res) {
+        if (req.matches.length() < 3) {
+            res.set_content("Not found", "text/plain");
+            res.status = 404;
+            return;
+        }
+
+        if (stores.find(req.matches[1]) == stores.end()) {
+            stores[req.matches[1]] = new KVStore(req.matches[1]);
+        }
+
+        KVStore* store = stores[req.matches[1]];
+        auto key = req.matches[2];
         std::vector<uint8_t> data;
         std::string mime = req.get_header_value("Content-Type");
         if (mime.empty()) {
             mime = "application/octet-stream";
         }
-        int ret = kv.write_entry(path, std::vector<uint8_t>(req.body.begin(), req.body.end()), mime);
-        fmt::print("POST /{} ({}): {}\n", path.str(), mime, std::strerror(ret));
+        int ret = store->write_entry(key, std::vector<uint8_t>(req.body.begin(), req.body.end()), mime);
+        fmt::print("POST /{} ({}): {}\n", key.str(), mime, std::strerror(ret));
         if (ret < 0) {
             res.set_content(std::strerror(ret), "text/plain");
             res.status = 500;
@@ -104,11 +110,12 @@ int main(int argc, const char** argv) {
             , "text/html");
     });
 
-    server.Get("/merge", [&](const httplib::Request&, httplib::Response& res) {
-        auto before = std::filesystem::file_size(storefile);
-        int ret = kv.merge();
+    server.Get("/merge/(.+)", [&](const httplib::Request& req, httplib::Response& res) {
+        auto store = stores[req.matches[1]];
+        auto before = std::filesystem::file_size(store->getFilename());
+        int ret = store->merge();
         if (ret == 0) {
-            auto after = std::filesystem::file_size(storefile);
+            auto after = std::filesystem::file_size(store->getFilename());
             res.set_content(fmt::format("before: {} bytes, after: {} bytes", before, after), "text/plain");
         } else {
             res.set_content(fmt::format("error: {}\n", std::strerror(ret)), "text/plain");
@@ -116,7 +123,14 @@ int main(int argc, const char** argv) {
         }
     });
 
-    server.Get("/all-keys", [&](const httplib::Request& req, httplib::Response& res) {
+    server.Get("/all-keys/(.+)", [&](const httplib::Request& req, httplib::Response& res) {
+        if (stores.find(req.matches[1]) == stores.end()) {
+            res.set_content("Not found", "text/plain");
+            res.status = 404;
+            return;
+        }
+
+        auto store = stores[req.matches[1]];
         std::string accept = req.get_header_value("Accept");
         const std::vector<Mime> allowed_types = {
             { "application", "json" },
@@ -135,7 +149,7 @@ int main(int argc, const char** argv) {
             }
             accept = highest.type + "/" + highest.subtype;
         }
-        auto keys = kv.get_all_keys();
+        auto keys = store->get_all_keys();
         std::sort(keys.begin(), keys.end());
         if (accept == "text/html") {
             std::string html;
@@ -165,7 +179,7 @@ int main(int argc, const char** argv) {
     int port = std::stoi(argv[2]);
 
     fmt::print("Listening on [{}]:{}\n", host, port);
-    fmt::print("POST/GET to http://{}:{}/kv/<key>\n", host, port);
+    fmt::print("POST/GET to http://{}:{}/kv/<store>/<key>\n", host, port);
     fmt::print("-----------\nHow-to: http://{}:{}/help\n-----------\n", host, port);
     server.listen(host, port);
     fmt::print("Terminating gracefully\n");

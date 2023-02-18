@@ -137,7 +137,7 @@ int KVStore::merge() {
     size_t entries = 0;
     {
         // temporary kv store will handle closing the file again
-        KVStore tmp_store(temp_file.string(), true);
+        KVStore tmp_store(temp_file.string());
         KVEntry entry;
         for (const auto& [key, pos] : m_keydir) {
             (void)key; // ignore
@@ -206,13 +206,15 @@ KVStore::~KVStore() {
     std::fclose(m_file);
     m_file = nullptr;
 }
-KVStore::KVStore(const std::string& filename, bool temp) {
+KVStore::KVStore(const std::string& filename) {
     if (!std::filesystem::exists("store")) {
         std::filesystem::create_directory("store");
     }
 
+    bool exists = std::filesystem::exists(filename);
+
     std::string path;
-    if (!temp) {
+    if (!exists) {
         path = fmt::format("store/{}", filename);
     }
     else {
@@ -220,8 +222,8 @@ KVStore::KVStore(const std::string& filename, bool temp) {
     }
     m_filename = path;
 
-    if (!std::filesystem::exists(path) || std::filesystem::file_size(path) == 0) {
-        m_file = std::fopen(path.c_str(), "w+b");
+    if (!exists || std::filesystem::file_size(path) == 0) {
+        m_file = std::fopen(fmt::format("{}.kvs",path).c_str(), "w+b");
         if (!m_file) {
             throw std::runtime_error(fmt::format("could not create file '{}': {}", filename, std::strerror(errno)));
         }
@@ -232,7 +234,7 @@ KVStore::KVStore(const std::string& filename, bool temp) {
             throw std::runtime_error(fmt::format("could not write header into new file '{}': {}", filename, std::strerror(errno)));
         }
     } else {
-        m_file = std::fopen(filename.c_str(), "a+b");
+        m_file = std::fopen(path.c_str(), "a+b");
         if (!m_file) {
             throw std::runtime_error(fmt::format("could not create file '{}': {}", filename, std::strerror(errno)));
         }
@@ -518,4 +520,8 @@ std::vector<std::string> KVStore::get_all_keys() const {
         result.push_back(key);
     }
     return result;
+}
+
+std::string KVStore::getFilename() {
+    return m_filename;
 }
