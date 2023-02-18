@@ -1,3 +1,5 @@
+#include "Accept.h"
+#include "KVStore.h"
 #include <cerrno>
 #include <csignal>
 #include <cstdint>
@@ -9,9 +11,9 @@
 #include <fmt/core.h>
 #include <httplib.h>
 #include <mutex>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <unordered_map>
-#include "KVStore.h"
 
 static httplib::Server server {};
 
@@ -111,6 +113,43 @@ int main(int argc, const char** argv) {
         } else {
             res.set_content(fmt::format("error: {}\n", std::strerror(ret)), "text/plain");
             res.status = 500;
+        }
+    });
+
+    server.Get("/all-keys", [&](const httplib::Request& req, httplib::Response& res) {
+        std::string accept = req.get_header_value("Accept");
+        const std::vector<Mime> allowed_types = {
+            { "application", "json" },
+            { "text", "html" },
+        };
+        if (accept.empty()) {
+            fmt::print("/all-keys requested without 'Accept' header, assuming application/json\n");
+            accept = "application/json";
+        } else {
+            // parses and sorts
+            AcceptValues values(accept);
+            Mime highest = values.highest_in(allowed_types);
+            if (highest.type == "*" && highest.subtype == "*") {
+                fmt::print("/all-keys request has 'Accept' header, but nothing this server can provide. Sending application/json instead.\n");
+                highest = allowed_types.front();
+            }
+            accept = highest.type + "/" + highest.subtype;
+        }
+        auto keys = kv.get_all_keys();
+        std::sort(keys.begin(), keys.end());
+        if (accept == "text/html") {
+            std::string html = R"(<!DOCTYPE html><head><meta charset="UTF-8"><title>all keys</title>)"
+                               R"(<style>body{font-family:sans-serif;margin-left:5%;margin-right:5%;}</style><body><table><tbody>)";
+            for (const auto& key : keys) {
+                html += fmt::format(R"(<tr><td>{}</td></tr>)", key);
+            }
+            html += R"(</tbody></table></body></html>)";
+            res.set_content(html, accept);
+        } else if (accept == "application/json") {
+            res.set_content(nlohmann::json(keys).dump(), accept);
+        } else {
+            res.status = 500;
+            res.set_content("Internal server error", "text/plain");
         }
     });
 

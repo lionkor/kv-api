@@ -4,6 +4,8 @@
   "dependencies": [
       "fmt",
       "doctest",
-      "cpp-httplib"
+      "cpp-httplib",
+      "nlohmann-json",
+      "boost-spirit"
   ]
 }

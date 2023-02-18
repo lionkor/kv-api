@@ -5,6 +5,8 @@
 
 A simple, fast, persistent (disk-backed) key-value store with REST API, written in C++.
 
+Since v2.0.0, the MIME type of the data is stored, too.
+
 ## How to use
 
 Do NOT expose this to the internet without sufficient authentication by a proxy. 
@@ -46,7 +48,7 @@ $ curl localhost:8080/kv/language
 C++
 ```
 
-You can, of couse, also POST and GET binary data, such as files (any data up to 4GB), or json, or whatever you like. It will always be returned as `application/octet-stream`, as of v1.0.0.
+You can, of couse, also POST and GET binary data, such as files (any data up to 4GB), or json, or whatever you like. It will always be returned as the MIME type you stored it with (or `application/octet-stream`, if `Content-Type` was not supplied).
 
 ## Performance
 
