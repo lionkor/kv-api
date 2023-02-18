@@ -138,12 +138,17 @@ int main(int argc, const char** argv) {
         auto keys = kv.get_all_keys();
         std::sort(keys.begin(), keys.end());
         if (accept == "text/html") {
-            std::string html = R"(<!DOCTYPE html><head><meta charset="UTF-8"><title>all keys</title>)"
-                               R"(<style>body{font-family:sans-serif;margin-left:5%;margin-right:5%;}</style><body><table><tbody>)";
+            std::string html;
+            std::string rows = "";
+
             for (const auto& key : keys) {
-                html += fmt::format(R"(<tr><td>{}</td></tr>)", key);
+                rows += fmt::format(R"(<tr><td>{}</td></tr>)", key);
             }
-            html += R"(</tbody></table></body></html>)";
+
+            html = fmt::format(
+                #include "all-keys.html"
+            , rows);
+
             res.set_content(html, accept);
         } else if (accept == "application/json") {
             res.set_content(nlohmann::json(keys).dump(), accept);
