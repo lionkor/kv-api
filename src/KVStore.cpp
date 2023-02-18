@@ -137,7 +137,7 @@ int KVStore::merge() {
     size_t entries = 0;
     {
         // temporary kv store will handle closing the file again
-        KVStore tmp_store(temp_file.string());
+        KVStore tmp_store(temp_file.string(), true);
         KVEntry entry;
         for (const auto& [key, pos] : m_keydir) {
             (void)key; // ignore
@@ -206,10 +206,22 @@ KVStore::~KVStore() {
     std::fclose(m_file);
     m_file = nullptr;
 }
-KVStore::KVStore(const std::string& filename)
-    : m_filename(filename) {
-    if (!std::filesystem::exists(filename) || std::filesystem::file_size(filename) == 0) {
-        m_file = std::fopen(filename.c_str(), "w+b");
+KVStore::KVStore(const std::string& filename, bool temp) {
+    if (!std::filesystem::exists("store")) {
+        std::filesystem::create_directory("store");
+    }
+
+    std::string path;
+    if (!temp) {
+        path = fmt::format("store/{}", filename);
+    }
+    else {
+        path = filename;
+    }
+    m_filename = path;
+
+    if (!std::filesystem::exists(path) || std::filesystem::file_size(path) == 0) {
+        m_file = std::fopen(path.c_str(), "w+b");
         if (!m_file) {
             throw std::runtime_error(fmt::format("could not create file '{}': {}", filename, std::strerror(errno)));
         }

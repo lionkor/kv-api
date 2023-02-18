@@ -43,7 +43,7 @@ int main(int argc, const char** argv) {
 
     bool is_new = true;
 
-    if (std::filesystem::exists(storefile)) {
+    if (std::filesystem::exists("store/"+storefile)) {
         fmt::print("Storefile \"{}\" already exists. KV will index existing content.\n", storefile);
         is_new = false;
     }

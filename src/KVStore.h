@@ -47,7 +47,7 @@ public:
         std::tuple<uint8_t, uint8_t, uint8_t> get_version() const;
     };
 
-    KVStore(const std::string& filename);
+    KVStore(const std::string& filename, bool temp = false);
 
     ~KVStore();
 
