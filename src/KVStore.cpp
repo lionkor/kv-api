@@ -1,7 +1,7 @@
 #include "KVStore.h"
 
-#include <doctest/doctest.h>
 #include <array>
+#include <doctest/doctest.h>
 
 // error checked version of fwrite
 // returns negative value on error, otherwise 0
@@ -203,8 +203,10 @@ int KVStore::merge() {
 }
 KVStore::~KVStore() {
     std::unique_lock lock(m_mtx);
-    std::fclose(m_file);
-    m_file = nullptr;
+    if (m_file) {
+        std::fclose(m_file);
+        m_file = nullptr;
+    }
 }
 KVStore::KVStore(const std::string& filename)
     : m_filename(filename) {
@@ -506,4 +508,22 @@ std::vector<std::string> KVStore::get_all_keys() const {
         result.push_back(key);
     }
     return result;
+}
+KVStore& KVStore::operator=(KVStore&& other) {
+    if (m_file) {
+        std::fclose(m_file);
+    }
+    m_file = std::move(other.m_file);
+    other.m_file = nullptr;
+    m_filename = std::move(other.m_filename);
+    m_header = std::move(other.m_header);
+    m_keydir = std::move(other.m_keydir);
+    return *this;
+}
+KVStore::KVStore(KVStore&& other)
+    : m_file(std::move(other.m_file))
+    , m_filename(std::move(other.m_filename))
+    , m_header(std::move(other.m_header))
+    , m_keydir(std::move(other.m_keydir)) {
+    other.m_file = nullptr;
 }

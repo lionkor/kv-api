@@ -8,10 +8,10 @@
 #include <cstring>
 #include <filesystem>
 #include <fmt/core.h>
-#include <vector>
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 class KVStore {
 private:
@@ -48,6 +48,13 @@ public:
     };
 
     KVStore(const std::string& filename);
+
+    KVStore(KVStore&& other);
+
+    KVStore& operator=(KVStore&& other);
+
+    KVStore& operator=(const KVStore&) = delete;
+    KVStore(const KVStore&) = delete;
 
     ~KVStore();
 
