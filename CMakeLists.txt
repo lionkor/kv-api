@@ -110,4 +110,8 @@ if(${PROJECT_NAME}_ENABLE_UNIT_TESTING)
     set_project_warnings(${PROJECT_NAME}-tests)
 endif()
 
+if(${PROJECT_NAME}_BUILD_TOOLS)
+    add_subdirectory(tools)
+endif()
+
 

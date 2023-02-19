@@ -8,10 +8,10 @@
 #include <cstring>
 #include <filesystem>
 #include <fmt/core.h>
-#include <vector>
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 class KVStore {
 private:
@@ -34,9 +34,8 @@ private:
         int write_to_file(std::FILE* file) const;
     };
 
-    KVStore() = default;
-
 public:
+    KVStore() = default;
     struct KVHeader {
         KVSize version = { .value = 0 };
 
@@ -48,6 +47,13 @@ public:
     };
 
     KVStore(const std::string& filename);
+
+    KVStore(KVStore&& other);
+
+    KVStore& operator=(KVStore&& other);
+
+    KVStore& operator=(const KVStore&) = delete;
+    KVStore(const KVStore&) = delete;
 
     ~KVStore();
 
@@ -61,6 +67,8 @@ public:
     int read_entry(const std::string& key, std::vector<uint8_t>& out_value, std::string& out_mime);
 
     std::vector<std::string> get_all_keys() const;
+
+    std::string getFilename();
 
 private:
     int write_entry_impl(const KVEntry& entry);

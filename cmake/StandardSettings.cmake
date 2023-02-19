@@ -1,6 +1,7 @@
 # Modified, original version from https://github.com/filipdutescu/modern-cpp-template (Unlicense)
 
 option(${PROJECT_NAME}_WARNINGS_AS_ERRORS "Treat compiler warnings as errors." OFF)
+option(${PROJECT_NAME}_BUILD_TOOLS "Build tools." OFF)
 option(${PROJECT_NAME}_CHECKOUT_GIT_SUBMODULES "If git is found, initialize all submodules." ON)
 option(${PROJECT_NAME}_ENABLE_UNIT_TESTING "Enable unit tests for the projects (from the `test` subfolder)." ON)
 option(${PROJECT_NAME}_ENABLE_CLANG_TIDY "Enable static analysis with Clang-Tidy." OFF)
