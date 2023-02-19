@@ -40,11 +40,15 @@ int main(int argc, const char** argv) {
 
     server.set_payload_max_length(std::numeric_limits<uint32_t>::max());
 
-    std::map<std::string, KVStore*> stores;
+    if (!std::filesystem::exists("store")) {
+        std::filesystem::create_directory("store");
+    }
+
+    std::map<std::string, KVStore> stores;
     std::filesystem::directory_iterator storePaths = std::filesystem::directory_iterator("store");
     for (const auto& storePath : storePaths) {
-        KVStore* store = new KVStore(storePath.path().string());
-        stores[storePath.path().stem().string()] = store;
+        KVStore store(storePath.path().string());
+        stores[storePath.path().stem().string()] = std::move(store);
     }
 
     server.set_error_handler([&](const httplib::Request&, httplib::Response& res) {
@@ -58,12 +62,12 @@ int main(int argc, const char** argv) {
             return;
         }
 
-        KVStore* store = stores[req.matches[1]];
+        KVStore& store = stores[req.matches[1]];
         auto key = req.matches[2];
 
         std::vector<uint8_t> data;
         std::string mime;
-        int ret = store->read_entry(key, data, mime);
+        int ret = store.read_entry(key, data, mime);
         fmt::print("GET /{}: {}\n", key.str(), ret == 1 ? "Not found" : std::strerror(ret));
         if (ret < 0) {
             res.set_content(fmt::format("error: {}", std::strerror(ret)), "text/plain");
@@ -84,17 +88,17 @@ int main(int argc, const char** argv) {
         }
 
         if (stores.find(req.matches[1]) == stores.end()) {
-            stores[req.matches[1]] = new KVStore(req.matches[1]);
+            stores[req.matches[1]] = KVStore(req.matches[1]);
         }
 
-        KVStore* store = stores[req.matches[1]];
+        KVStore& store = stores[req.matches[1]];
         auto key = req.matches[2];
         std::vector<uint8_t> data;
         std::string mime = req.get_header_value("Content-Type");
         if (mime.empty()) {
             mime = "application/octet-stream";
         }
-        int ret = store->write_entry(key, std::vector<uint8_t>(req.body.begin(), req.body.end()), mime);
+        int ret = store.write_entry(key, std::vector<uint8_t>(req.body.begin(), req.body.end()), mime);
         fmt::print("POST /{} ({}): {}\n", key.str(), mime, std::strerror(ret));
         if (ret < 0) {
             res.set_content(std::strerror(ret), "text/plain");
@@ -111,11 +115,17 @@ int main(int argc, const char** argv) {
     });
 
     server.Get("/merge/(.+)", [&](const httplib::Request& req, httplib::Response& res) {
-        auto store = stores[req.matches[1]];
-        auto before = std::filesystem::file_size(store->getFilename());
-        int ret = store->merge();
+        if (stores.find(req.matches[1]) == stores.end()) {
+            res.set_content("Not found", "text/plain");
+            res.status = 404;
+            return;
+        }
+
+        KVStore& store = stores[req.matches[1]];
+        auto before = std::filesystem::file_size(store.getFilename());
+        int ret = store.merge();
         if (ret == 0) {
-            auto after = std::filesystem::file_size(store->getFilename());
+            auto after = std::filesystem::file_size(store.getFilename());
             res.set_content(fmt::format("before: {} bytes, after: {} bytes", before, after), "text/plain");
         } else {
             res.set_content(fmt::format("error: {}\n", std::strerror(ret)), "text/plain");
@@ -130,7 +140,7 @@ int main(int argc, const char** argv) {
             return;
         }
 
-        auto store = stores[req.matches[1]];
+        KVStore& store = stores[req.matches[1]];
         std::string accept = req.get_header_value("Accept");
         const std::vector<Mime> allowed_types = {
             { "application", "json" },
@@ -149,7 +159,7 @@ int main(int argc, const char** argv) {
             }
             accept = highest.type + "/" + highest.subtype;
         }
-        auto keys = store->get_all_keys();
+        auto keys = store.get_all_keys();
         std::sort(keys.begin(), keys.end());
         if (accept == "text/html") {
             std::string html;
