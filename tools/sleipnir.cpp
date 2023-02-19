@@ -9,10 +9,13 @@
  */
 
 #include <algorithm>
+#include <chrono>
+#include <cstdlib>
+#include <fmt/chrono.h>
 #include <fmt/core.h>
 #include <httplib.h>
 
-static void flood(const std::string& host, uint16_t port, const std::string& prefix) {
+static void flood(const std::string& host, uint16_t port, const std::string& prefix, size_t max_stores, size_t max_keys) {
     fmt::print("{}: connecting to [{}]:{}\n", prefix, host, port);
 
     httplib::Client client(host, port);
@@ -20,9 +23,6 @@ static void flood(const std::string& host, uint16_t port, const std::string& pre
     client.set_read_timeout(5, 0);
 
     constexpr auto kv_path = "/kv/{}-{}/{}";
-
-    size_t max_stores = 10;
-    size_t max_keys = 10000;
 
     std::string body = "HELLO WORLD";
 
@@ -46,31 +46,67 @@ static void flood(const std::string& host, uint16_t port, const std::string& pre
 int main(int argc, const char** argv) {
     setlocale(LC_ALL, "C");
 
-    const char* defaults[] = { argv[0], "127.0.0.1", "8080" };
-    if (argc == 1) {
-        argc = 3;
-        argv = defaults;
+    size_t thread_count = 2; // cli arg 't'
+    size_t store_count = 10; // cli arg 's'
+    size_t key_count = 1000; // cli arg 'k'
+
+    std::string host = "127.0.0.1";
+    uint16_t port = 8080;
+
+    for (int argi = 1; argi < argc;) {
+        std::string arg = argv[argi];
+        if (arg.size() == 2 && argc > argi + 1) {
+            switch (arg[0]) {
+            case '-':
+                switch (arg[1]) {
+                case 't': {
+                    thread_count = std::strtoull(argv[argi + 1], nullptr, 10);
+                    argi += 2;
+                } break;
+                case 's': {
+                    store_count = std::strtoull(argv[argi + 1], nullptr, 10);
+                    argi += 2;
+                } break;
+                case 'k': {
+                    key_count = std::strtoull(argv[argi + 1], nullptr, 10);
+                    argi += 2;
+                } break;
+                case 'h': {
+                    host = argv[argi + 1];
+                    argi += 2;
+                } break;
+                case 'p': {
+                    port = uint16_t(std::stoi(argv[argi + 1]));
+                    argi += 2;
+                } break;
+                default:
+                    fmt::print("invalid flag: -{}, ignoring\n", arg[1]);
+                    ++argi;
+                }
+                break;
+            default:
+                ++argi;
+            }
+        }
     }
 
-    fmt::print("SLEIPNIR for KV API v{}.{}.{}-{}\n", PRJ_VERSION_MAJOR, PRJ_VERSION_MINOR, PRJ_VERSION_PATCH, PRJ_GIT_HASH);
-    if (argc != 3) {
-        fmt::print("error: not enough arguments. <host> <port> expected.\n\texample: {} 127.0.0.1 8080\n", argv[0]);
-        return 1;
-    }
-
-    std::string host = argv[1];
-    int port = std::stoi(argv[2]);
+    fmt::print("spawning {} thread(s), each querying {} store(s), {} key(s) each\n", thread_count, store_count, key_count);
+    fmt::print("for a total of \n- {} per thread, or\n- {} in total\n", store_count * key_count, thread_count * store_count * key_count);
 
     std::vector<std::thread> threads;
 
-    size_t thread_count = 2;
+    auto start = std::chrono::high_resolution_clock::now();
 
     for (size_t i = 0; i < thread_count; ++i) {
-        threads.emplace_back(std::thread(flood, host, port, fmt::format("thread-{}", i)));
+        threads.emplace_back(std::thread(flood, host, port, fmt::format("thread-{}", i), store_count, key_count));
     }
 
     for (auto& thread : threads) {
         thread.join();
     }
+
+    auto end = std::chrono::high_resolution_clock::now();
+
+    fmt::print("took {:%H:%M:%S}\n", end - start);
 }
 
