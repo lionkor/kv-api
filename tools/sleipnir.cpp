@@ -87,6 +87,8 @@ int main(int argc, const char** argv) {
             default:
                 ++argi;
             }
+        } else {
+            ++argi;
         }
     }
 
