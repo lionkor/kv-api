@@ -45,30 +45,43 @@ int main(int argc, const char** argv) {
     }
 
     std::map<std::string, KVStore> stores;
-    std::filesystem::directory_iterator storePaths = std::filesystem::directory_iterator("store");
-    for (const auto& storePath : storePaths) {
-        KVStore store(storePath.path().string());
-        stores[storePath.path().stem().string()] = std::move(store);
+    std::filesystem::directory_iterator store_paths = std::filesystem::directory_iterator("store");
+    for (const auto& store_path : store_paths) {
+        std::string store_name = store_path.path().stem().string();
+        fmt::print("loading store \"{}\" from \"{}\"\n", store_name, store_path.path().string());
+        stores[store_name] = KVStore(store_path.path().string());
     }
 
-    server.set_error_handler([&](const httplib::Request&, httplib::Response& res) {
-        res.set_content(fmt::format("error {}", res.status), "text/plain");
+    server.set_error_handler([&](const httplib::Request& req, httplib::Response& res) {
+        res.set_content(fmt::format("error {} for {} {}", res.status, req.method, req.path), "text/plain");
     });
 
-    server.Get(R"(/kv/(.+)/(.+))", [&](const httplib::Request& req, httplib::Response& res) {
-        if (stores.find(req.matches[1]) == stores.end() || req.matches.length() < 3) {
+    // the first part /kv/ is mandatory.
+    // then, a store name, which must be valid as part of a filename.
+    //      this means that, for windows, we can't have any of: 
+    //          <>:"/\|?*
+    //      and for linux we can't have 
+    //          /
+    // theoretically, we should handle invalid names, such as `COM`, but since we
+    // append an extension, we don't care.
+    const std::string kv_path = R"(/kv/([^\/<>:"\\|?*]+)/(.+))";
+
+    server.Get(kv_path, [&](const httplib::Request& req, httplib::Response& res) {
+        std::string store_name = req.matches[1].str();
+        std::string key = req.matches[2].str();
+        if (!stores.contains(store_name)) {
+            fmt::print("GET {}: requested store \"{}\" doesn't exist\n", req.path, store_name);
             res.set_content("Not found", "text/plain");
             res.status = 404;
             return;
         }
 
-        KVStore& store = stores[req.matches[1]];
-        auto key = req.matches[2];
+        KVStore& store = stores[store_name];
 
         std::vector<uint8_t> data;
         std::string mime;
         int ret = store.read_entry(key, data, mime);
-        fmt::print("GET /{}: {}\n", key.str(), ret == 1 ? "Not found" : std::strerror(ret));
+        fmt::print("GET {}: {}\n", req.path, ret == 1 ? "Not found" : std::strerror(ret));
         if (ret < 0) {
             res.set_content(fmt::format("error: {}", std::strerror(ret)), "text/plain");
             res.status = 500;
@@ -80,26 +93,22 @@ int main(int argc, const char** argv) {
         }
     });
 
-    server.Post(R"(/kv/(.+)/(.+))", [&](const httplib::Request& req, httplib::Response& res) {
-        if (req.matches.length() < 3) {
-            res.set_content("Not found", "text/plain");
-            res.status = 404;
-            return;
+    server.Post(kv_path, [&](const httplib::Request& req, httplib::Response& res) {
+        std::string store_name = req.matches[1].str();
+        std::string key = req.matches[2].str();
+
+        if (!stores.contains(store_name)) {
+            stores[store_name] = KVStore(store_name);
         }
 
-        if (stores.find(req.matches[1]) == stores.end()) {
-            stores[req.matches[1]] = KVStore(req.matches[1]);
-        }
-
-        KVStore& store = stores[req.matches[1]];
-        auto key = req.matches[2];
+        KVStore& store = stores[store_name];
         std::vector<uint8_t> data;
         std::string mime = req.get_header_value("Content-Type");
         if (mime.empty()) {
             mime = "application/octet-stream";
         }
         int ret = store.write_entry(key, std::vector<uint8_t>(req.body.begin(), req.body.end()), mime);
-        fmt::print("POST /{} ({}): {}\n", key.str(), mime, std::strerror(ret));
+        fmt::print("POST {} ({}): {}\n", req.path, mime, std::strerror(ret));
         if (ret < 0) {
             res.set_content(std::strerror(ret), "text/plain");
             res.status = 500;
@@ -115,7 +124,9 @@ int main(int argc, const char** argv) {
     });
 
     server.Get("/merge/(.+)", [&](const httplib::Request& req, httplib::Response& res) {
-        if (stores.find(req.matches[1]) == stores.end()) {
+        std::string store_name = req.matches[1];
+        if (!stores.contains(store_name)) {
+            fmt::print("GET {}: requested store \"{}\" doesn't exist\n", req.path, store_name);
             res.set_content("Not found", "text/plain");
             res.status = 404;
             return;
@@ -134,13 +145,15 @@ int main(int argc, const char** argv) {
     });
 
     server.Get("/all-keys/(.+)", [&](const httplib::Request& req, httplib::Response& res) {
-        if (stores.find(req.matches[1]) == stores.end()) {
+        std::string store_name = req.matches[1];
+        if (stores.contains(store_name)) {
+            fmt::print("GET {}: requested store \"{}\" doesn't exist\n", req.path, store_name);
             res.set_content("Not found", "text/plain");
             res.status = 404;
             return;
         }
 
-        KVStore& store = stores[req.matches[1]];
+        KVStore& store = stores[store_name];
         std::string accept = req.get_header_value("Accept");
         const std::vector<Mime> allowed_types = {
             { "application", "json" },
@@ -170,8 +183,8 @@ int main(int argc, const char** argv) {
             }
 
             html = fmt::format(
-                #include "all-keys.html"
-            , rows);
+#include "all-keys.html"
+                , rows);
 
             res.set_content(html, accept);
         } else if (accept == "application/json") {
