@@ -34,9 +34,8 @@ private:
         int write_to_file(std::FILE* file) const;
     };
 
-    KVStore() = default;
-
 public:
+    KVStore() = default;
     struct KVHeader {
         KVSize version = { .value = 0 };
 
