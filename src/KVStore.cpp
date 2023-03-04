@@ -1,7 +1,7 @@
 #include "KVStore.h"
 
-#include <doctest/doctest.h>
 #include <array>
+#include <doctest/doctest.h>
 
 // error checked version of fwrite
 // returns negative value on error, otherwise 0
@@ -203,13 +203,25 @@ int KVStore::merge() {
 }
 KVStore::~KVStore() {
     std::unique_lock lock(m_mtx);
-    std::fclose(m_file);
-    m_file = nullptr;
+    if (m_file) {
+        std::fclose(m_file);
+        m_file = nullptr;
+    }
 }
-KVStore::KVStore(const std::string& filename)
-    : m_filename(filename) {
-    if (!std::filesystem::exists(filename) || std::filesystem::file_size(filename) == 0) {
-        m_file = std::fopen(filename.c_str(), "w+b");
+KVStore::KVStore(const std::string& filename) {
+    bool exists = std::filesystem::exists(filename);
+
+    std::string path;
+    if (!exists) {
+        path = fmt::format("store/{}", filename);
+    }
+    else {
+        path = filename;
+    }
+    m_filename = path;
+
+    if (!exists || std::filesystem::file_size(path) == 0) {
+        m_file = std::fopen(fmt::format("{}.kvs",path).c_str(), "w+b");
         if (!m_file) {
             throw std::runtime_error(fmt::format("could not create file '{}': {}", filename, std::strerror(errno)));
         }
@@ -220,7 +232,7 @@ KVStore::KVStore(const std::string& filename)
             throw std::runtime_error(fmt::format("could not write header into new file '{}': {}", filename, std::strerror(errno)));
         }
     } else {
-        m_file = std::fopen(filename.c_str(), "a+b");
+        m_file = std::fopen(path.c_str(), "a+b");
         if (!m_file) {
             throw std::runtime_error(fmt::format("could not create file '{}': {}", filename, std::strerror(errno)));
         }
@@ -241,6 +253,7 @@ KVStore::KVStore(const std::string& filename)
         // TODO: Implement porting to newer versions
         throw std::runtime_error("invalid kvstore version");
     }
+    index();
 }
 int KVStore::KVEntry::write_to_file(std::FILE* file) const {
     assert(key_length.value == key.size());
@@ -506,4 +519,27 @@ std::vector<std::string> KVStore::get_all_keys() const {
         result.push_back(key);
     }
     return result;
+}
+
+std::string KVStore::getFilename() {
+    return m_filename;
+}
+
+KVStore& KVStore::operator=(KVStore&& other) {
+    if (m_file) {
+        std::fclose(m_file);
+    }
+    m_file = std::move(other.m_file);
+    other.m_file = nullptr;
+    m_filename = std::move(other.m_filename);
+    m_header = std::move(other.m_header);
+    m_keydir = std::move(other.m_keydir);
+    return *this;
+}
+KVStore::KVStore(KVStore&& other)
+    : m_file(std::move(other.m_file))
+    , m_filename(std::move(other.m_filename))
+    , m_header(std::move(other.m_header))
+    , m_keydir(std::move(other.m_keydir)) {
+    other.m_file = nullptr;
 }
