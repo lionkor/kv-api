@@ -1,6 +1,7 @@
 #include "Accept.h"
 #include "KVStore.h"
 #include <cerrno>
+#include <chrono>
 #include <csignal>
 #include <cstdint>
 #include <cstdio>
@@ -28,6 +29,8 @@ int main(int argc, const char** argv) {
     setlocale(LC_ALL, "C");
 
     spdlog::set_level(spdlog::level::trace);
+    spdlog::flush_every(std::chrono::seconds(5));
+    spdlog::flush_on(spdlog::level::err);
 
     const char* defaults[] = { argv[0], "127.0.0.1", "8080", "store" };
     if (argc == 1) {
