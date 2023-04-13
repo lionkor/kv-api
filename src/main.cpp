@@ -56,7 +56,7 @@ int main(int argc, const char** argv) {
     for (const auto& store_path : store_paths) {
         std::string store_name = store_path.path().stem().string();
         spdlog::info("loading store \"{}\" from \"{}\"", store_name, store_path.path().string());
-        stores[store_name] = KVStore(root_path + "/" + store_path.path().string());
+        stores[store_name] = KVStore(store_path.path().string());
     }
 
     server.set_error_handler([&](const httplib::Request& req, httplib::Response& res) {
