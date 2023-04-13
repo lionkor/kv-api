@@ -161,6 +161,53 @@ int main(int argc, const char** argv) {
         }
     });
 
+    server.Get("/all-stores", [&](const httplib::Request& req, httplib::Response& res) {
+        std::string accept = req.get_header_value("Accept");
+        const std::vector<Mime> allowed_types = {
+            { "application", "json" },
+            { "text", "html" },
+        };
+        if (accept.empty()) {
+            spdlog::warn("/all-stores requested without 'Accept' header, assuming application/json");
+            accept = "application/json";
+        } else {
+            // parses and sorts
+            AcceptValues values(accept);
+            Mime highest = values.highest_in(allowed_types);
+            if (highest.type == "*" && highest.subtype == "*") {
+                spdlog::warn("/all-stores request has 'Accept' header, but nothing this server can provide. Sending application/json instead.");
+                highest = allowed_types.front();
+            }
+            accept = highest.type + "/" + highest.subtype;
+        }
+        std::vector<std::string> store_names;
+        store_names.reserve(stores.size());
+        for (const auto& [k, v] : stores) {
+            (void)v;
+            store_names.push_back(k);
+        }
+        std::sort(store_names.begin(), store_names.end());
+        if (accept == "text/html") {
+            std::string html;
+            std::string rows = "";
+
+            for (const auto& name : store_names) {
+                rows += fmt::format(R"(<tr><td>{}</td></tr>)", name);
+            }
+
+            html = fmt::format(
+#include "all-stores.html"
+                , rows);
+
+            res.set_content(html, accept);
+        } else if (accept == "application/json") {
+            res.set_content(nlohmann::json(store_names).dump(), accept);
+        } else {
+            res.status = 500;
+            res.set_content("Internal server error", "text/plain");
+        }
+    });
+
     server.Get("/all-keys/(.+)", [&](const httplib::Request& req, httplib::Response& res) {
         std::string store_name = req.matches[1];
         if (!stores.contains(store_name)) {
