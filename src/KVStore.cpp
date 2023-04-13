@@ -9,6 +9,7 @@
     size_t n = std::fwrite(buffer, 1, size, file);
     if (n != size) {
         // error
+        fmt::print("debug: error writing to file: {}\n", std::strerror(errno));
         return errno;
     }
     return 0;
@@ -24,6 +25,7 @@
         if (std::feof(file)) {
             return 1;
         } else if (std::ferror(file)) {
+            fmt::print("debug: error reading from file: {}\n", std::strerror(errno));
             return errno;
         } else {
             return -1; // should never happen :)
@@ -208,33 +210,26 @@ KVStore::~KVStore() {
         m_file = nullptr;
     }
 }
-KVStore::KVStore(const std::string& filename) {
-    bool exists = std::filesystem::exists(filename);
+KVStore::KVStore(const std::string& path) {
+    bool exists = std::filesystem::exists(path);
 
-    std::string path;
-    if (!exists) {
-        path = fmt::format("store/{}", filename);
-    }
-    else {
-        path = filename;
-    }
     m_filename = path;
 
     if (!exists || std::filesystem::file_size(path) == 0) {
-        m_file = std::fopen(fmt::format("{}.kvs",path).c_str(), "w+b");
+        m_file = std::fopen(fmt::format("{}.kvs", path).c_str(), "w+b");
         if (!m_file) {
-            throw std::runtime_error(fmt::format("could not create file '{}': {}", filename, std::strerror(errno)));
+            throw std::runtime_error(fmt::format("could not create file '{}': {}", path, std::strerror(errno)));
         }
         KVHeader hdr;
         hdr.set_version(PRJ_VERSION_MAJOR, PRJ_VERSION_MINOR, PRJ_VERSION_PATCH);
         int ret = hdr.write_to_file(m_file);
         if (ret < 0) {
-            throw std::runtime_error(fmt::format("could not write header into new file '{}': {}", filename, std::strerror(errno)));
+            throw std::runtime_error(fmt::format("could not write header into new file '{}': {}", path, std::strerror(errno)));
         }
     } else {
         m_file = std::fopen(path.c_str(), "a+b");
         if (!m_file) {
-            throw std::runtime_error(fmt::format("could not create file '{}': {}", filename, std::strerror(errno)));
+            throw std::runtime_error(fmt::format("could not create file '{}': {}", path, std::strerror(errno)));
         }
     }
     if (!KVHeader::is_header(m_file)) {

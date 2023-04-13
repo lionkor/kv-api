@@ -10,10 +10,10 @@
 #include <filesystem>
 #include <fmt/core.h>
 #include <httplib.h>
+#include <map>
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <string>
-#include <map>
 #include <unordered_map>
 
 static httplib::Server server {};
@@ -40,29 +40,39 @@ int main(int argc, const char** argv) {
 
     server.set_payload_max_length(std::numeric_limits<uint32_t>::max());
 
-    const auto store_path = argv[3];
+    const std::string root_path = argv[3];
 
-    if (!std::filesystem::exists(store_path)) {
-        std::filesystem::create_directory(store_path);
+    if (!std::filesystem::exists(root_path)) {
+        std::filesystem::create_directory(root_path);
     }
 
     std::map<std::string, KVStore> stores;
-    std::filesystem::directory_iterator store_paths = std::filesystem::directory_iterator(store_path);
+    std::filesystem::directory_iterator store_paths = std::filesystem::directory_iterator(root_path);
     for (const auto& store_path : store_paths) {
         std::string store_name = store_path.path().stem().string();
         fmt::print("loading store \"{}\" from \"{}\"\n", store_name, store_path.path().string());
-        stores[store_name] = KVStore(store_path.path().string());
+        stores[store_name] = KVStore(root_path + "/" + store_path.path().string());
     }
 
     server.set_error_handler([&](const httplib::Request& req, httplib::Response& res) {
         res.set_content(fmt::format("error {} for {} {}", res.status, req.method, req.path), "text/plain");
     });
 
+    server.set_exception_handler([&](const httplib::Request& req, httplib::Response& res, std::exception_ptr eptr) {
+        try {
+            if (eptr)
+                std::rethrow_exception(eptr);
+        } catch (const std::exception& e) {
+            fmt::print("Exception: {}\n", e.what());
+        }
+        res.set_content(fmt::format("exception thrown for {} {}", res.status, req.method, req.path), "text/plain");
+    });
+
     // the first part /kv/ is mandatory.
     // then, a store name, which must be valid as part of a filename.
-    //      this means that, for windows, we can't have any of: 
+    //      this means that, for windows, we can't have any of:
     //          <>:"/\|?*
-    //      and for linux we can't have 
+    //      and for linux we can't have
     //          /
     // theoretically, we should handle invalid names, such as `COM`, but since we
     // append an extension, we don't care.
@@ -100,7 +110,7 @@ int main(int argc, const char** argv) {
         std::string key = req.matches[2].str();
 
         if (!stores.contains(store_name)) {
-            stores[store_name] = KVStore(store_name);
+            stores[store_name] = KVStore(root_path + "/" + store_name);
         }
 
         KVStore& store = stores[store_name];
