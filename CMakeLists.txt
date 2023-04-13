@@ -40,12 +40,14 @@ set(PRJ_LIBRARIES
     doctest::doctest
     Threads::Threads
     httplib::httplib
+    spdlog::spdlog
 )
 
 # add dependency find_package calls and similar here
 find_package(fmt CONFIG REQUIRED)
 find_package(doctest CONFIG REQUIRED)
 find_package(httplib CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
 
 # to enable multithreading and the Threads::Threads dependency
 include(FindThreads)

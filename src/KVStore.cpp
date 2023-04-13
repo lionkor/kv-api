@@ -9,7 +9,7 @@
     size_t n = std::fwrite(buffer, 1, size, file);
     if (n != size) {
         // error
-        fmt::print("debug: error writing to file: {}\n", std::strerror(errno));
+        spdlog::info("debug: error writing to file: {}", std::strerror(errno));
         return errno;
     }
     return 0;
@@ -25,7 +25,7 @@
         if (std::feof(file)) {
             return 1;
         } else if (std::ferror(file)) {
-            fmt::print("debug: error reading from file: {}\n", std::strerror(errno));
+            spdlog::info("debug: error reading from file: {}", std::strerror(errno));
             return errno;
         } else {
             return -1; // should never happen :)
@@ -95,7 +95,7 @@ int KVStore::index() {
     }
     KVEntry entry;
     // TODO: handle errors
-    fmt::print("index: collecting kv entries...\n");
+    spdlog::info("index: collecting kv entries...");
     for (;;) {
         std::fpos_t pos;
         ret = std::fgetpos(m_file, &pos);
@@ -105,15 +105,15 @@ int KVStore::index() {
         ret = entry.read_from_file(m_file);
         if (ret < 0) {
             // error
-            fmt::print("index: error reading from file: {}\n", std::strerror(ret));
+            spdlog::info("index: error reading from file: {}", std::strerror(ret));
             return ret;
         } else if (ret > 0) {
-            fmt::print("index: end of file\n");
+            spdlog::info("index: end of file");
             break;
         }
         m_keydir[entry.key] = pos;
     }
-    fmt::print("index: collected {} kv entries\n", m_keydir.size());
+    spdlog::info("index: collected {} kv entries", m_keydir.size());
     return 0;
 }
 int KVStore::merge() {
@@ -135,7 +135,7 @@ int KVStore::merge() {
     }
     temp_file = name;
 
-    fmt::print("merge: creating temporary file \"{}\"\n", temp_file.string());
+    spdlog::info("merge: creating temporary file \"{}\"", temp_file.string());
     size_t entries = 0;
     {
         // temporary kv store will handle closing the file again
@@ -150,10 +150,10 @@ int KVStore::merge() {
             ret = entry.read_from_file(m_file);
             if (ret < 0) {
                 // error
-                fmt::print("merge: failed due to error reading file: {}\n", ret);
+                spdlog::info("merge: failed due to error reading file: {}", ret);
                 return ret;
             } else if (ret > 0) {
-                fmt::print("merge: end of file\n");
+                spdlog::info("merge: end of file");
                 break;
             }
             tmp_store.write_entry_impl(entry);
@@ -162,20 +162,20 @@ int KVStore::merge() {
         std::fflush(tmp_store.m_file);
     }
     // close the old file, move it, move the new file, remove the old one
-    fmt::print("merge: closing file \"{}\"\n", m_filename);
+    spdlog::info("merge: closing file \"{}\"", m_filename);
     std::fclose(m_file);
 
     // get old file size
     auto old_size = std::filesystem::file_size(m_filename);
 
     std::string bak_file = temp_file.string() + ".bak";
-    fmt::print("merge: moving file \"{}\" -> \"{}\"\n", m_filename, bak_file);
+    spdlog::info("merge: moving file \"{}\" -> \"{}\"", m_filename, bak_file);
     std::filesystem::copy(m_filename, bak_file, std::filesystem::copy_options::overwrite_existing);
 
-    fmt::print("merge: moving new file \"{}\" -> \"{}\"\n", temp_file.string(), m_filename);
+    spdlog::info("merge: moving new file \"{}\" -> \"{}\"", temp_file.string(), m_filename);
     std::filesystem::copy(temp_file, m_filename, std::filesystem::copy_options::overwrite_existing);
 
-    fmt::print("merge: opening \"{}\" as new kv store\n", m_filename);
+    spdlog::info("merge: opening \"{}\" as new kv store", m_filename);
 
     m_file = std::fopen(m_filename.data(), "a+b");
 
@@ -185,11 +185,11 @@ int KVStore::merge() {
     }
 
     if (entries != m_keydir.size()) {
-        fmt::print("merge: something went wrong, maybe entries were lost. keeping the old file in the temporary directory.\n");
+        spdlog::info("merge: something went wrong, maybe entries were lost. keeping the old file in the temporary directory.");
     } else {
-        fmt::print("merge: removing old file \"{}\"\n", bak_file);
+        spdlog::info("merge: removing old file \"{}\"", bak_file);
         std::filesystem::remove(bak_file);
-        fmt::print("merge: removing old file \"{}\"\n", temp_file.string());
+        spdlog::info("merge: removing old file \"{}\"", temp_file.string());
         std::filesystem::remove(temp_file);
     }
 
@@ -200,7 +200,7 @@ int KVStore::merge() {
         return ret;
     }
 
-    fmt::print("merge: merged {} entries, reduced store size from {} to {} bytes\n", entries, old_size, std::filesystem::file_size(m_filename));
+    spdlog::info("merge: merged {} entries, reduced store size from {} to {} bytes", entries, old_size, std::filesystem::file_size(m_filename));
     return 0;
 }
 KVStore::~KVStore() {
@@ -233,18 +233,18 @@ KVStore::KVStore(const std::string& path) {
         }
     }
     if (!KVHeader::is_header(m_file)) {
-        fmt::print("file has no header, must be a kvstore from before v2.0.0.\n");
+        spdlog::info("file has no header, must be a kvstore from before v2.0.0.");
         // TODO: convert from old to new format
         assert(!"not implemented");
     }
     int ret = m_header.parse_from_file(m_file);
     if (ret < 0) {
-        fmt::print("error: failed to parse header of kvstore: {}\n", std::strerror(ret));
+        spdlog::info("error: failed to parse header of kvstore: {}", std::strerror(ret));
         throw std::runtime_error("failed to parse header");
     }
     auto [maj, min, pat] = m_header.get_version();
     if (PRJ_VERSION_MAJOR != maj) {
-        fmt::print("error: header version mismatch: {} (ours) != {} (file)\n", PRJ_VERSION_MAJOR, maj);
+        spdlog::info("error: header version mismatch: {} (ours) != {} (file)", PRJ_VERSION_MAJOR, maj);
         // TODO: Implement porting to newer versions
         throw std::runtime_error("invalid kvstore version");
     }
@@ -457,7 +457,7 @@ std::tuple<uint8_t, uint8_t, uint8_t> KVStore::KVHeader::get_version() const {
 int KVStore::KVHeader::parse_from_file(std::FILE* file) {
     if (!is_header(file)) {
         // shouldn't happen, as the user can / should check with is_header before trying to parse
-        fmt::print("error: supplied file's header is not a kv header!\n");
+        spdlog::info("error: supplied file's header is not a kv header!");
         return -1;
     }
     // skip 8 bytes of zero (verified by is_header before)
@@ -469,7 +469,7 @@ int KVStore::KVHeader::parse_from_file(std::FILE* file) {
     if (ret < 0) {
         return ret;
     } else if (ret > 0) {
-        fmt::print("error: supplied file is not large enough to contain a header!\n");
+        spdlog::info("error: supplied file is not large enough to contain a header!");
         return -1;
     }
     return 0;

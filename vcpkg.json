@@ -6,6 +6,7 @@
       "doctest",
       "cpp-httplib",
       "nlohmann-json",
-      "boost-spirit"
+      "boost-spirit",
+      "spdlog"
   ]
 }

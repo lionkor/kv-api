@@ -12,6 +12,7 @@
 #include <doctest/doctest.h>
 #include <fmt/core.h>
 #include <optional>
+#include <spdlog/spdlog.h>
 
 AcceptValues::AcceptValues(const std::string& raw) {
     using namespace boost::spirit;
