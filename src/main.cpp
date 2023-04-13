@@ -31,7 +31,6 @@ int main(int argc, const char** argv) {
     spdlog::set_level(spdlog::level::trace);
     spdlog::flush_every(std::chrono::seconds(5));
     spdlog::flush_on(spdlog::level::err);
-g
     const char* defaults[] = { argv[0], "127.0.0.1", "8080", "store" };
     if (argc == 1) {
         argc = 4;
