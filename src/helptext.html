@@ -24,7 +24,7 @@ R"(
     </p>
     <h2>How to use</h2>
     <p>
-        To STORE a value in this key-value store, POST to the endpoint <code>/kv/my-key</code> with the body of the request as the value.
+        To STORE a value in this key-value store, POST to the endpoint <code>/kv/my-store/my-key</code> with the body of the request as the value.
         For example, <code>curl -X POST http://HOST:PORT/kv/my-store/my-key-2 --data "Hello world!"</code> will cause the key-value pair <code>my-key-2=Hello world!</code> to be stored in a store called <code>my-store</code>.
         To LOAD / GET a value, use a GET request to the same endpoint. For example, to get the value of key <code>my-key-2</code> in store <code>my-store</code>, GET the <code>/kv/my-store/my-key-2</code> endpoint.
     </p>
