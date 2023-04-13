@@ -26,26 +26,28 @@ static void sighandler(int) {
 int main(int argc, const char** argv) {
     setlocale(LC_ALL, "C");
 
-    const char* defaults[] = { argv[0], "127.0.0.1", "8080" };
+    const char* defaults[] = { argv[0], "127.0.0.1", "8080", "store" };
     if (argc == 1) {
         argc = 3;
         argv = defaults;
     }
 
     fmt::print("KV API v{}.{}.{}-{}\n", PRJ_VERSION_MAJOR, PRJ_VERSION_MINOR, PRJ_VERSION_PATCH, PRJ_GIT_HASH);
-    if (argc != 3) {
-        fmt::print("error: not enough arguments. <host> <port> expected.\n\texample: {} 127.0.0.1 8080\n", argv[0]);
+    if (argc != 4) {
+        fmt::print("error: not enough arguments. <host> <port> <store-path> expected.\n\texample: {} 127.0.0.1 8080 store\n", argv[0]);
         return 1;
     }
 
     server.set_payload_max_length(std::numeric_limits<uint32_t>::max());
 
-    if (!std::filesystem::exists("store")) {
-        std::filesystem::create_directory("store");
+    const auto store_path = argv[3];
+
+    if (!std::filesystem::exists(store_path)) {
+        std::filesystem::create_directory(store_path);
     }
 
     std::map<std::string, KVStore> stores;
-    std::filesystem::directory_iterator store_paths = std::filesystem::directory_iterator("store");
+    std::filesystem::directory_iterator store_paths = std::filesystem::directory_iterator(store_path);
     for (const auto& store_path : store_paths) {
         std::string store_name = store_path.path().stem().string();
         fmt::print("loading store \"{}\" from \"{}\"\n", store_name, store_path.path().string());
