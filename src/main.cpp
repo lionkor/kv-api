@@ -28,7 +28,7 @@ int main(int argc, const char** argv) {
 
     const char* defaults[] = { argv[0], "127.0.0.1", "8080", "store" };
     if (argc == 1) {
-        argc = 3;
+        argc = 4;
         argv = defaults;
     }
 
