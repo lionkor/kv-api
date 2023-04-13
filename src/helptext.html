@@ -25,16 +25,18 @@ R"(
     <h2>How to use</h2>
     <p>
         To STORE a value in this key-value store, POST to the endpoint <code>/kv/my-key</code> with the body of the request as the value.
-        For example, <code>curl -X POST http://HOST:PORT/kv/my-key-2 --data "Hello world!"</code> will cause the key-value pair <code>my-key-2=Hello world!</code> to be stored.
-        To LOAD / GET a value, use a GET request to the same endpoint. For example, to get the value of key <code>my-key-2</code>, GET the <code>/kv/my-key-2</code> endpoint.
+        For example, <code>curl -X POST http://HOST:PORT/kv/my-store/my-key-2 --data "Hello world!"</code> will cause the key-value pair <code>my-key-2=Hello world!</code> to be stored in a store called <code>my-store</code>.
+        To LOAD / GET a value, use a GET request to the same endpoint. For example, to get the value of key <code>my-key-2</code> in store <code>my-store</code>, GET the <code>/kv/my-store/my-key-2</code> endpoint.
     </p>
     <h3>Endpoints</h3>
     <b>NOTE:</b> KEY must match the regex <code>.+</code> . Please be aware that e.g. <code>/../</code> is special and will be resolved.
     <ul>
-        <li><b><code>GET /kv/KEY</code></b> : Get the value for the key supplied after <code>/kv/</code>.</li>
-        <li><b><code>POST /kv/KEY</code></b> : Put a new value for the key supplied after <code>/kv/</code>. New value of the key goes in the body.</li>
+        <li><b><code>GET /kv/STORE/KEY</code></b> : Get the value for the key in the store.</li>
+        <li><b><code>POST /kv/STORE/KEY</code></b> : Put a new value for the key in the store. New value of the key goes in the body. The store is created if it doesn't exist.</li>
+        <li><b><code>GET /merge/STORE</code></b> : Causes an immediate merge of the key-value store. Should be ran after adding a lot of keys, or after updating keys.</li>
+        <li><b><code>GET /all-keys/STORE</code></b> : Lists all keys in the store. By default text/html, but via the Accept header the application/json format can be requested.</li>
         <li><b><code>GET /help</code></b> : This help.</li>
-        <li><b><code>GET /merge</code></b> : Causes an immediate merge of the key-value store. Should be ran after adding a lot of keys, or after updating keys.</li>
+
     </ul>
     <h2>Errors</h2>
     <ul>
